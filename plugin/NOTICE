@@ -1,0 +1,24 @@
+keel
+Copyright (c) 2026 Javier Cardozo
+
+keel includes or adapts material from the following projects. Their license texts are in
+plugin/vendor/<project>/LICENSE; per-file provenance is in plugin/vendor/PROVENANCE.md and
+in-place changes are listed in plugin/vendor/CHANGELOG.md.
+
+Spec Kit (github/spec-kit), version 0.8.4.dev0
+  Copyright GitHub, Inc.
+  Licensed under the MIT License.
+  Scripts and templates are copied into plugin/vendor/speckit; keel's step skills adapt its
+  command workflows.
+
+superpowers (obra/superpowers), version 7.0.2
+  Copyright (c) 2025 Jesse Vincent
+  Licensed under the MIT License.
+  keel's tdd, debug, verify and respond-review skills, its implementer and task-reviewer
+  agents and its implement skill adapt superpowers skills and prompts.
+
+feature-dev (anthropics/claude-plugins-official), version 1.0.1
+  Licensed under the Apache License, Version 2.0 (plugin/vendor/feature-dev/LICENSE).
+  keel's explorer, architect and code-reviewer agents are modified versions of feature-dev's
+  code-explorer, code-architect and code-reviewer agents; each modified file carries a notice
+  stating that it was changed (Apache License 2.0, section 4(b)).

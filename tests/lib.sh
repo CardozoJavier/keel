@@ -45,7 +45,7 @@ assert_exit() {
 }
 
 # t_tmp: a fresh temp directory for one fixture
-t_tmp() { mktemp -d "${TMPDIR:-/tmp}/keeltest.XXXXXX"; }
+t_tmp() { local base=${TMPDIR:-/tmp}; mktemp -d "${base%/}/keeltest.XXXXXX"; }
 
 # mk_repo: a git repo on main with a test identity and no signing; prints its path
 mk_repo() {

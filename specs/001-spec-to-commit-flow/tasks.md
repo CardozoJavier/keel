@@ -56,7 +56,7 @@ data-model.md, contracts/, quickstart.md)
   - Unit-ID boundary matcher `(^|[^A-Za-z0-9])<ID>([^A-Za-z0-9-]|$)` under `LC_ALL=C`.
   - The temp-index builder from contracts/run-state.md: seed with `git read-tree <ref>` into a new file under scratch, then fill with `git add -A -- ':/' ':(top,exclude).specify/feature.json'`, then `write-tree`.
   - The tests also cover the tracked-but-ignored fixture.
-- [ ] T004 [P] Vendor Spec Kit 0.8.4.dev0 verbatim into `plugin/vendor/speckit/` (non-behavior).
+- [X] T004 [P] Vendor Spec Kit 0.8.4.dev0 verbatim into `plugin/vendor/speckit/` (non-behavior).
   - Copy `scripts/bash/common.sh`, `scripts/bash/check-prerequisites.sh` and `templates/{spec,plan,tasks,checklist,constitution}-template.md` from this repo's `.specify/`.
   - Add `plugin/vendor/speckit/LICENSE` with the MIT text, taken from the installed `specify` package (find it under the uv/pipx tool directory).
   - Apply keel's template edits:
@@ -70,15 +70,15 @@ data-model.md, contracts/, quickstart.md)
     `**Path**`, `**Plan status**` and `**Analyzed**` lines, the `keel:baseline` comment, a
     `## Design Decision` and a `## Plan Review`. The check must report the same FEATURE_DIR and
     AVAILABLE_DOCS as for a plain Spec Kit fixture.
-- [ ] T005 [P] Vendor superpowers 7.0.2 pristine sources into `plugin/vendor/superpowers/` (non-behavior).
+- [X] T005 [P] Vendor superpowers 7.0.2 pristine sources into `plugin/vendor/superpowers/` (non-behavior).
   - `skills/test-driven-development/` (all files), `skills/systematic-debugging/` (all files), `skills/verification-before-completion/SKILL.md`, `skills/receiving-code-review/SKILL.md`.
   - `skills/requesting-code-review/` (all files) and `skills/subagent-driven-development/` (all files).
   - `LICENSE`.
   - Source: `~/.claude/plugins/cache/claude-plugins-official/superpowers/7.0.2/`.
-- [ ] T006 [P] Vendor feature-dev 1.0.1 pristine sources into `plugin/vendor/feature-dev/` (non-behavior).
+- [X] T006 [P] Vendor feature-dev 1.0.1 pristine sources into `plugin/vendor/feature-dev/` (non-behavior).
   - `agents/{code-explorer,code-architect,code-reviewer}.md`, plus `LICENSE` (Apache-2.0) and any upstream `NOTICE`.
   - Source: `~/.claude/plugins/cache/claude-plugins-official/feature-dev/1.0.1/`.
-- [ ] T007 Write the provenance check, with tests in `tests/scripts/provenance_test.sh` (test first).
+- [X] T007 Write the provenance check, with tests in `tests/scripts/provenance_test.sh` (test first).
   - Every file under `plugin/vendor/*/` (except `PROVENANCE.md`/`CHANGELOG.md`) appears in `plugin/vendor/PROVENANCE.md` with upstream, version, license and local changes.
   - `NOTICE` and `plugin/NOTICE` attribute Spec Kit (MIT, GitHub, Inc.), superpowers (MIT, Jesse Vincent) and feature-dev (Apache-2.0).
   - Every file under `plugin/{skills,agents}` that names an upstream in an `Adapted from` header refers to a vendored file.
