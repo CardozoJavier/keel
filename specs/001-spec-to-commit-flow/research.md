@@ -193,3 +193,29 @@ keel may rely only on bash and git (constitution, Plugin Constraints). The only 
     updated.
   - **Still open, for T031**: the `history_file` `.jsonl` format, and whether a call blocked by a
     PreToolUse hook counts in `tool_used`.
+- **R7.2 Live push-guard verification** (T021, 2026-11-25):
+  - **Setup**: `tests/tools/live_guard_probe.sh`, run as `claude -p --plugin-dir plugin` with haiku
+    in a throwaway repo whose only remote is a local bare repo. The **remote had 0 refs
+    afterwards**.
+  - **Blocked**: zsh alias `gp` (shim A1); a post-commit hook running `git push` (A0, via the
+    rewrite helper); `zsh -lc 'git push'` (layer B, B4); `git push --no-verify` (layer B, B3).
+  - **Allowed**: `git stash push -m wip`, `git rebase -x true HEAD~1`.
+  - **Item 5** (session env in subagents and skill-injected commands): **yes, both**. A
+    general-purpose subagent's Bash and a skill's injected command both saw `KEEL_ROOT` and `git`
+    resolving to the shim. Decision rule 5 is not needed: no `tools` restriction and no
+    `updatedInput` fallback.
+  - **Item 7** (`PreSkillShellCommand`): skill-injected commands don't reach PreToolUse, and no
+    payload was logged for them. They run with the session env, so A0 and A cover them. keel
+    doesn't register that event; layer B is not applied to commands written inside skills.
+  - **Item 3** (Monitor): the tool name is `Monitor`, and its payload carries
+    `tool_input.command` (plus `description` and `timeout_ms`). It is covered by the shell matcher
+    and logged by `KEEL_GUARD_LOG`.
+  - **Item 8** (env lifetime): the env persists across `cd`, and after `claude -p --continue`
+    (resume) `KEEL_ROOT`, the shim and all 5 A0 entries were present. `/clear`, compaction and
+    fork are interactive-only; they are checked in the interactive trials (T058/T080).
+  - **Item 1** (user `!` commands): interactive-only, checked in T058/T080. It isn't required by
+    FR-022, which covers the assistant's actions.
+  - **Item 9** (minimum git for config hooks): the exact version is not determinable offline.
+    It doesn't need to be: the functional self-check (`git hook list pre-push` must list keel's
+    hook) refuses any git that lacks config hooks, so keel needs no version constant. Verified
+    working on 2.54.

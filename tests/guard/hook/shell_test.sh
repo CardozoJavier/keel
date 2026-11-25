@@ -63,4 +63,9 @@ out=$(printf '{"tool_name":"Bash","tool_input":{}}' | /bin/bash "$HOOK" 2>&1); a
 nested="echo deep"; for i in 1 2 3 4 5 6 7; do nested="bash -c $(printf '%q' "$nested")"; done
 out=$(run_hook "$nested"); assert_eq 2 "$?" "payload nesting beyond the limit fails closed"
 
+# opt-in payload log for empirical checks
+lg="$jdk/guard.log"
+out=$(payload "git status" | KEEL_GUARD_LOG="$lg" /bin/bash "$HOOK" 2>&1)
+assert_contains "$(cat "$lg" 2>/dev/null)" '"tool_name":"Bash"' "KEEL_GUARD_LOG records the payload"
+
 t_summary

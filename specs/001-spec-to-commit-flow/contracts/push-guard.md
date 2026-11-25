@@ -176,7 +176,7 @@ doesn't cover), attempts to weaken A0, and non-shell tools.
 | `^mcp__.*github.*__.*$` | `--github-mcp`: allow `^(get\|list\|search)_` and the named non-publishing writes `add_issue_comment`, `create_issue`, `update_issue`, `add_comment_to_pending_review`, `create_pending_pull_request_review`, `submit_pending_pull_request_review`, `request_copilot_review`; deny the rest |
 | `^mcp__codex__codex$` | `--codex`: deny if `sandbox` is `danger-full-access`, or `config` sets `sandbox_mode` or enables network; with `sandbox` absent, use `sandbox_mode` from `${CODEX_HOME:-~/.codex}/config.toml` (unreadable → deny) |
 | `^mcp__codex__codex-reply$` | allow |
-| `PreSkillShellCommand` event (if its payload carries the command; verification item 7) | shell |
+| `PreSkillShellCommand` | not registered: skill-injected commands run with the session env, so A0 and A cover them (research R7.2) |
 
 ### Shell mode
 

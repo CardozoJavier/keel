@@ -145,7 +145,7 @@ claude plugin eval plugin --eval-dir tests/eval --no-publish --allow-tools Bash
 | Plugin `bin/` on the Bash PATH | appended (verified 2026-11-25) |
 | SessionStart `CLAUDE_ENV_FILE` PATH prepend | works; the shim intercepted zsh `gp` and `eval` (verified 2026-11-25) |
 | `CLAUDE_PLUGIN_ROOT` in the Bash env | absent (verified 2026-11-25); keel exports `KEEL_ROOT` |
-| Session env in subagents and skill-injected commands | _TBD (item 5)_ |
-| User `!` commands get the session env | _TBD (item 1)_ |
+| Session env in subagents and skill-injected commands | yes, both (verified 2026-11-25, research R7.2) |
+| User `!` commands get the session env | _TBD (item 1, interactive trial T058)_ |
 | `skills:` preload in plugin agents | _TBD (item 2)_ |
 | Allow rules inside plugin subagents | _TBD (item 6)_ |

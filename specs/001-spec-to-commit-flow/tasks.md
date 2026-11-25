@@ -164,7 +164,7 @@ case passes.
   - Every entry has `onFailure: "block"` and a 10 s timeout.
   - The test asserts the structure, the anchored matchers and that every referenced script is executable.
 - [X] T020 Add guard performance checks in `tests/guard/perf_test.sh`, measured with `TIMEFORMAT=%3R`: layer B p95 under 50 ms on the allow corpus, and shim overhead under 15 ms per git/gh call (test first).
-- [ ] T021 Run the empirical guard verification, items 1, 3, 5, 7, 8 and 9 (non-behavior).
+- [X] T021 Run the empirical guard verification, items 1, 3, 5, 7, 8 and 9 (non-behavior).
   - Use `claude -p --plugin-dir plugin` probe sessions with a local bare remote in the scratchpad.
   - Check that:
     - `gp`, a pushing post-commit hook and `zsh -lc 'git push'` are blocked live;

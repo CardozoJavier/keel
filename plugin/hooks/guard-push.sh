@@ -34,6 +34,8 @@ KEEL_VAR_RE='\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?'
 NLE=$'\036'
 
 input=$(cat) || deny F1 "cannot read the hook payload"
+# Opt-in diagnostics for empirical checks (research R7): append the raw payload, one per line.
+[ -n "${KEEL_GUARD_LOG:-}" ] && printf '%s\t%s\n' "${1:-shell}" "$input" >> "$KEEL_GUARD_LOG" 2>/dev/null
 [ -n "$input" ] || deny F1 "empty hook payload"
 fields=$(printf '%s' "$input" | keel_json_fields tool_name tool_input.command cwd; printf x) || deny F1 "hook payload is not valid JSON"
 fields=${fields%x}
