@@ -68,19 +68,26 @@ otherwise run `keel-state next` and use its `FEATURE=` value. `<base>` is `BASE=
 3. In `spec.md`, replace the `**Status**:` line with `**Status**: Implemented (<YYYY-MM-DD>)`.
    Leave the `**Path**` and `**Base**` lines as they are.
 4. If step 1 ran, append its re-mutation section to `test-quality.md`.
-5. **Commit** both files, staging them by path, in the **host's commit style**, with the feature
-   number in the subject. For example: `feat(<feature>): implement <short title>`.
+5. **Commit** both files, staging them by path, in the **host's commit style**. **The subject must
+   contain the feature number `NNN`** (data-model.md §3), for example
+   `feat(<feature>): implement <short title>`. `FINISH` alone is not enough.
    - Never add an AI co-author trailer where the host forbids one.
    - The step 2 verify you showed is this commit's evidence.
 6. Run `keel-ledger append <feature> finish ok <sha> FINISH`.
 
 ## 4. Memory (optional, FR-025)
 
-- **If engram's `mem_save` is available**: save one memory with `topic_key: keel/<feature>`,
+This is the second and last memory save for the feature.
+
+- **If engram's `mem_save` is available**: save one memory with `topic_key: keel/<feature>` and
   `type: decision`. It holds the outcome, the chosen design, the commits, and the test-quality and
   review summaries. The same key updates the plan-time memory instead of adding a copy.
-  - If the save returns `judgment_required`, resolve it without asking (related or compatible).
-- **If it isn't available, or fails**: skip silently. Never call `mem_session_*` tools.
+  - If the response says `judgment_required`, call `mem_judge` **once per candidate**, without
+    asking the developer. Pass the candidate's `judgment_id`, relation `related` (or `compatible`),
+    and a one-line reason.
+- **If it isn't available**: skip it, and don't mention memory in the final report.
+- **If a call fails**: continue, and add "memory: <tool> failed: <error>" to the final report.
+- Never call `mem_session_*` tools.
 
 ## 5. Final report
 

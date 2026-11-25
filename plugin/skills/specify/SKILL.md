@@ -23,9 +23,11 @@ placeholder literally.
 
 ## 1. Recall (optional, FR-004)
 
-- **If engram's `mem_search` tool is available**: search for decisions related to the description
+- **If engram's `mem_search` tool is available, always call it**: search for decisions related to the description
   (2–3 short queries on its key nouns). Read only what is relevant.
-- **If it isn't available, or fails**: skip silently. Never call `mem_session_*` tools.
+- **If it isn't available**: skip it, and don't mention memory anywhere.
+- **If a call fails**: continue, and note "memory: mem_search failed: <error>" for the final report.
+- Recall only reads: specify makes no memory save. Never call `mem_session_*` tools.
 
 ## 2. Understand before writing (FR-005)
 

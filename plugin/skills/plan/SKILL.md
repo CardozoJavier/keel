@@ -28,6 +28,7 @@ placeholder literally.
 
 ## Light path (Path: light)
 
+0. **Recall**: as in step 1 below. Don't skip it when `mem_search` is available.
 1. Write `specs/<feature>/plan.md` from `$KEEL_ROOT/vendor/speckit/templates/plan-template.md`:
    - `## Design Decision` with `**Chosen**: single design (light path)` and the design in a few
      lines;
@@ -39,10 +40,11 @@ placeholder literally.
 4. Save the decision to memory (step 6), then return to the run loop. No Gate 2 and no plan
    review.
 
-## 1. Recall (optional)
+## 1. Recall
 
-If engram's `mem_search` is available, search for decisions related to this feature, and cite
-the relevant ones in the plan. Skip silently if it's unavailable.
+- **If engram's `mem_search` tool is available, always call it** (2–3 short queries on the
+  feature's key nouns) before designing. Cite the relevant hits in the plan.
+- **If it isn't available**: skip it, and don't mention memory anywhere.
 
 ## 2. Explore (FR-007)
 
@@ -105,11 +107,17 @@ yourself does not replace them; that comes after they report.
 
 ## 6. Save the decision (optional, FR-025)
 
+This is the first of exactly **two** memory saves per feature. The second comes at finish; make no
+other saves during a run.
+
 - **If engram's `mem_save` is available**: save one memory with `topic_key: keel/<feature>` and
-  `type: decision`. It holds the chosen and rejected designs and key constraints.
-  - If the response says `judgment_required`, resolve each candidate without asking, using
-    `related` or `compatible`, and note any conflict in the final report.
-- **If it isn't available, or fails**: skip silently. Never call `mem_session_*` tools.
+  `type: decision`. It holds the chosen and rejected designs and the key constraints.
+  - If the response says `judgment_required`, call `mem_judge` **once per candidate**, without
+    asking the developer. Pass the candidate's `judgment_id`, relation `related` (or `compatible`
+    when both still apply), and a one-line reason.
+- **If it isn't available**: skip it, and don't mention memory in your report.
+- **If a call fails**: continue, and add "memory: <tool> failed: <error>" to the final report.
+- Never call `mem_session_*` tools.
 
 ## 7. Hand back
 

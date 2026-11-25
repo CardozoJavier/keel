@@ -55,6 +55,12 @@ ev run $f T005 red -- false >/dev/null; ev run $f T005 green -- true >/dev/null
 echo 'class A { int v; }' > "$r/src/main/java/A.java"
 assert_eq "green-production-change" "$(miss T005)" "GREEN before any production change fails"
 
+new_repo; start T009 n/a
+echo 'class ATest {}' > "$r/src/test/java/ATest.java"
+ev run $f T009 red -- true >/dev/null   # labelled red, but the test passed: not a RED
+echo 'class A { int t; }' > "$r/src/main/java/A.java"; ev run $f T009 green -- true >/dev/null
+assert_eq "red-before-green" "$(miss T009)" "a red run that passed is not RED (mutation self-check M15)"
+
 new_repo; start T006 n/a
 echo 'class ATest {}' > "$r/src/test/java/ATest.java"; ev run $f T006 red -- false >/dev/null
 echo 'class A { int u; }' > "$r/src/main/java/A.java"; ev run $f T006 green -- true >/dev/null

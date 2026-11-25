@@ -20,6 +20,8 @@ env -i git push
 env -u PATH git status
 ### B2 PATH replaced for a tool
 PATH=/usr/bin git push
+### B2 PATH replaced with entries that hold no guarded tool (mutation self-check M07)
+PATH=/keel-no-such-dir git push
 ### B2 PATH prepend of a dir holding git
 export PATH=/usr/bin:$PATH; gh pr create
 ### B2 GIT_CONFIG_COUNT override

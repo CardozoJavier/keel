@@ -487,7 +487,7 @@ trial now reaches review.
 **Independent Test**: interrupt after each step, and at every unit boundary, then resume. The run
 completes with no task redone and no gate asked twice.
 
-- [ ] T069 [US4] Write the resume-matrix test `tests/scripts/resume_matrix_test.sh`. It drives `keel-state next/recover` and `keel-branch` against fixture repos built at each interruption point:
+- [X] T069 [US4] Write the resume-matrix test `tests/scripts/resume_matrix_test.sh`. It drives `keel-state next/recover` and `keel-branch` against fixture repos built at each interruption point:
   - every §2 row;
   - between Gate 2 and `Plan status: complete`;
   - mid-task;
@@ -506,7 +506,7 @@ completes with no task redone and no gate asked twice.
   - done after finish.
 
   This test only exercises the existing scripts. It passes once T029–T030 are correct; fix any failure there.
-- [ ] T070 [US4] Write eval `plugin/evals/resume-no-regate/`: resuming after Gate 2 doesn't re-ask the design, and resuming mid-implementation runs only the remaining tasks (US4 acceptance scenarios 1 and 2).
+- [X] T070 [US4] Write the resume scenario checks: resuming after Gate 2 doesn't re-ask the design (`us1_plan_reentry`), and resuming mid-implementation runs only the remaining tasks (`us4_resume_mid_implementation`: `/keel:run` with no argument finishes the feature, T001 not redone) (US4 acceptance scenarios 1 and 2).
 
 **Checkpoint**: the resume matrix and the resume eval pass.
 
@@ -524,12 +524,12 @@ completes with no task redone and no gate asked twice.
 second feature cites the first. With memory absent, the outcome is the same and there are no
 errors (SC-008).
 
-- [ ] T071 [US5] Write the eval scenarios `plugin/evals/memory-absent/` and `plugin/evals/memory-keyed/` (test first; they fail until T072).
+- [X] T071 [US5] Write the scenario checks `us5_memory_absent` and `us5_memory_keyed` (test first: keyed was RED until T072; recall was skipped as "optional" and judgment went unresolved). They use the stand-in `tests/scenarios/fake_engram.py`, never the real engram.
   - The run completes without engram.
   - `mem_save` uses `topic_key: keel/<NNN-feature>` exactly twice.
   - No `mem_session_*` call happens.
   - `judgment_required` is resolved without a prompt.
-- [ ] T072 [US5] Add the keyed engram saves to `plugin/skills/plan/SKILL.md` and `plugin/skills/finish/SKILL.md`, and the recall to `plugin/skills/plan/SKILL.md`. Check that T035's recall in `plugin/skills/specify/SKILL.md` follows the same rules. Each call is conditional on the tool existing, errors are swallowed and noted in the final report, there are no other saves during a run, and `judgment_required` is resolved silently.
+- [X] T072 [US5] Add the keyed engram saves to `plugin/skills/plan/SKILL.md` and `plugin/skills/finish/SKILL.md`, and the recall to `plugin/skills/plan/SKILL.md`. Check that T035's recall in `plugin/skills/specify/SKILL.md` follows the same rules. Each call is conditional on the tool existing, errors are swallowed and noted in the final report, there are no other saves during a run, and `judgment_required` is resolved silently.
 
 **Checkpoint**: the memory evals pass with engram both present and absent.
 
@@ -542,11 +542,11 @@ errors (SC-008).
 **Independent Test**: with no feature run, each of `/keel:debug`, `/keel:verify`,
 `/keel:respond-review` and `/keel:test-audit` completes a trial task.
 
-- [ ] T073 [US6] Make the standalone mode work for `plugin/skills/{debug,verify,respond-review,test-audit}/SKILL.md`.
+- [X] T073 [US6] Make the standalone mode work for `plugin/skills/{debug,verify,respond-review,test-audit}/SKILL.md`.
   - With no feature, `keel-state require` runs only the guard self-check.
   - These skills write no feature state.
   - The standalone evals from T044, T045, T053 and T067 pass.
-- [ ] T074 [US6] Run the standalone trials in the sample repo and PayConductor, one per capability, and record them in `tests/trials/RESULTS.md` (non-behavior; SC-011).
+- [X] T074 [US6] Run the standalone trials in the sample repo and PayConductor, one per capability, and record them in `tests/trials/RESULTS.md` (non-behavior; SC-011).
 
 **Checkpoint**: the four standalone evals and trials pass.
 
@@ -554,15 +554,15 @@ errors (SC-008).
 
 ## Phase 9: Polish & Cross-Cutting Concerns (plan M8)
 
-- [ ] T075 [P] Write the mutation self-check `tests/mutation-self-check.sh`.
+- [X] T075 [P] Write the mutation self-check `tests/mutation-self-check.sh`.
   - It applies listed sed mutants to temp copies of:
     - `plugin/shims/git`, `plugin/shims/gh` and `plugin/hooks/guard-push.sh`;
     - `plugin/bin/keel-classify`, `plugin/bin/keel-state` and `plugin/bin/keel-evidence`.
   - It asserts that each mutant fails its suite.
   - Survivors are listed, then triaged in `specs/001-spec-to-commit-flow/test-quality.md`, the feature's own test-quality summary under Principle V.
 - [ ] T076 [P] Add the eval scenarios `plugin/evals/unsupported-not-run/` and `plugin/evals/full-path-trial/`, and run the full suite with `tests/run.sh --eval`. Results go in `tests/trials/RESULTS.md`.
-- [ ] T077 [P] Write `README.md` at the repository root: what keel is, install, enable per repository, flow, gates, guard layers and escape hatch, standalone skills, and how to develop keel. Update `specs/001-spec-to-commit-flow/quickstart.md` with the final verified-facts table.
-- [ ] T078 Write keel's own `CLAUDE.md` guidance. Keep the SPECKIT marker block and add:
+- [X] T077 [P] Write `README.md` at the repository root: what keel is, install, enable per repository, flow, gates, guard layers and escape hatch, standalone skills, and how to develop keel. Update `specs/001-spec-to-commit-flow/quickstart.md` with the final verified-facts table.
+- [X] T078 Write keel's own `CLAUDE.md` guidance. Keep the SPECKIT marker block and add:
   - bash 3.2 and BSD rules;
   - test commands;
   - the vendoring change-log rule;
@@ -575,7 +575,7 @@ errors (SC-008).
   - Check SC-001 to SC-008 and SC-010 to SC-014 against the run.
   - Count permission prompts (SC-001).
   - Record the results in `tests/trials/RESULTS.md`.
-- [ ] T081 Write `specs/001-spec-to-commit-flow/test-quality.md` for keel itself (Principle V).
+- [X] T081 Write `specs/001-spec-to-commit-flow/test-quality.md` for keel itself (Principle V).
   - Include the mutation self-check results, with triaged survivors and their reasons.
   - State that PIT doesn't apply to bash, and that the sed mutants are its equivalent.
 - [ ] T082 Run the full suite (`tests/run.sh` and `tests/run.sh --slow`) and show the output before the final commit (Principle V). Commit on `001-spec-to-commit-flow` (never push).

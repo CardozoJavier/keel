@@ -27,6 +27,7 @@ scn_repo() {
 
 # scn_claude <dir> <max-turns> <prompt> [extra claude args...]: run one session in <dir>.
 # Writes the session output to <dir>/../scenario-<ts>.XXXXXX.out and prints that path.
+# KEEL_SCN_EXTRA_TOOLS adds allowed tools (e.g. mcp__engram for the memory scenarios).
 # KEEL_SCN_PLUGIN overrides the plugin under test, e.g. a copy without one skill, to watch a
 # scenario fail before that skill exists.
 scn_claude() {
@@ -35,7 +36,7 @@ scn_claude() {
   out=$(mktemp "$(dirname "$dir")/scenario-$(date +%s).XXXXXX")
   (cd "$dir" && claude -p --model "$KEEL_SCN_MODEL" --plugin-dir "${KEEL_SCN_PLUGIN:-$KEEL_PLUGIN_ROOT}" \
      --settings "$KEEL_SCN_SETTINGS" \
-     --allowedTools "Bash,Read,Write,Edit,Glob,Grep,Skill,Agent" \
+     --allowedTools "Bash,Read,Write,Edit,Glob,Grep,Skill,Agent${KEEL_SCN_EXTRA_TOOLS:+,$KEEL_SCN_EXTRA_TOOLS}" \
      --max-turns "$turns" "$@" "$prompt" > "$out" 2>&1 </dev/null)
   printf '%s\n' "$out"
 }
@@ -51,7 +52,7 @@ scn_continue() {
 # scn_constitution <dir>: a minimal constitution so runs skip that step.
 scn_constitution() {
   mkdir -p "$1/.specify/memory"
-  printf '# Shop Constitution\n\n## Principles\n\n### I. Tests first\nEvery behavior change starts with a failing test.\n\n**Version**: 1.0.0 | **Ratified**: 2026-11-26\n' > "$1/.specify/memory/constitution.md"
+  printf '# Shop Constitution\n\n## Principles\n\n### I. Tests first\nEvery behavior change starts with a failing test.\n\n**Version**: 1.0.0 | **Ratified**: %s\n' "$(date +%Y-%m-%d)" > "$1/.specify/memory/constitution.md"
 }
 
 # scn_keel <dir> <keel-script> [args...]: run a keel script in <dir> with the guard environment
@@ -94,7 +95,7 @@ scn_light_feature() {
   {
     printf '# Feature Specification: %s\n\n' "$title"
     printf '**Feature Branch**: `%s`\n' "$f"
-    printf '**Status**: Approved (Gate 1, 2026-11-26)\n'
+    printf '**Status**: Approved (Gate 1, %s)\n' "$(date +%Y-%m-%d)"
     printf '**Path**: light (accepted at Gate 1)\n'
     printf '**Base**: %s (main)\n\n' "$base"
     printf '## User Scenarios & Testing *(mandatory)*\n\n'
@@ -123,7 +124,7 @@ scn_analyzed() {
   local dir=$1 f=$2 body=$3
   {
     printf '# Tasks: %s\n\n' "$f"
-    printf '**Analyzed**: 2026-11-26 (baseline 0 failing; build maven; tests present; setup none)\n'
+    printf '**Analyzed**: %s (baseline 0 failing; build maven; tests present; setup none)\n' "$(date +%Y-%m-%d)"
     printf '<!-- keel:baseline\ncmd: mvn %%2Dq verify\n%s\n' '-->'
     printf '\n## Phase 1: User Story 1\n\n%s\n' "$body"
   } > "$dir/specs/$f/tasks.md"

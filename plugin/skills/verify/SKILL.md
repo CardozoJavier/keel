@@ -35,7 +35,9 @@ Run `keel-state guard`. On a non-zero exit, stop and report it.
    - **Inside a keel run** (`--feature f --label L`): run
      `keel-verify run <f> --label <L> -- <command>`. Read `RESULT=`, `FAILING=`, `NEW=` and
      `LOG=`.
-   - **Standalone**: run the command itself.
+   - **Standalone**: run the command itself, in the foreground, and show its output. Don't write
+     logs or copies outside the repository (no `/tmp` files). Read the exit code from the same
+     command, e.g. `cmd; echo "exit=$?"`.
 3. **Read all the output**: the exit code, the reactor summary, failures and errors, and any
    `TESTS=none` or `BUILD=none`.
 4. **Show the developer the evidence**: the summary lines and the tail of the log, including the
