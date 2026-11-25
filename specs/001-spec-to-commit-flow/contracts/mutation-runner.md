@@ -6,8 +6,11 @@ Implements FR-030 to FR-035 and SC-012 to SC-014. The v1 backend is PIT through 
 ## `keel-mutate`
 
 ```text
-keel-mutate --out <dir> (--base <ref> | --module <path>) [--classes <fqcn,…>]
+keel-mutate --out <dir> (--base <ref|empty-tree> | --module <path>) [--classes <fqcn,…>]
             [--tests <fqcn,…>] [--threads <n>] [--budget <seconds>] [--maven <cmd>]
+            [--feature <NNN-name>]
+  → RESULT=ok MUTANTS= IN_SCOPE= NO_TEST= MUTANTS_TSV= LOG= COMMAND=  (exit 0)
+  → RESULT=not-run REASON=… (10) · RESULT=red|flaky TESTS= LOG= (11) · RESULT=tool-failure REASON= LOG= (12)
 ```
 
 ### Scope
@@ -33,9 +36,13 @@ keel-mutate --out <dir> (--base <ref> | --module <path>) [--classes <fqcn,…>]
   - test classes changed in `<base> HEAD`;
   - test classes that reference `X` by simple name (import, `new X`, `X.`; checked with grep).
   - `--tests` overrides the selection.
-  - Tests listed in the baseline failing set (`tasks.md` `keel:baseline` comment) are removed from
-    the selection and reported as "excluded: failing at baseline". Failures unrelated to the
-    feature therefore can't cause exit 11.
+  - Tests listed in the baseline failing set (`tasks.md` `keel:baseline` comment, read through
+    `--feature`) are removed from the selection and reported as "excluded: failing at baseline" in
+    `<out>/excluded-tests.txt`. Failures unrelated to the feature therefore can't cause exit 11.
+    PIT selects test *classes*, so a class with any baseline-failing method is excluded as a whole.
+  - Test classes changed in the feature are candidates for **every** changed class in their module.
+    A changed class whose only candidates were added for other classes is still sent to PIT, and its
+    uncovered mutants show as NO_COVERAGE gaps rather than NO_TEST rows; both block.
 - **A changed class with no selected test**: each changed-line range is recorded as one row with
   `status=NO_TEST`, without running PIT on it.
   - Its key is `sha1(class|NO_TEST|file:start+count)`.
@@ -56,14 +63,24 @@ keel-mutate --out <dir> (--base <ref> | --module <path>) [--classes <fqcn,…>]
 - **Maven executable**: `--maven` (from host instructions), else `./mvnw` if present, else `mvn`.
 - **Test runs**: `<mvn> <module-args> test -Dtest=<sel> -Dsurefire.failIfNoSpecifiedTests=false`.
 
-### Module arguments (no `install`, ever)
+### Module arguments (no `install`, ever; verified at M5, research R7.6)
 
-- **Default (spike-verified)**: `-f <module>/pom.xml`. `test-quality.md` notes when the module
-  depends on sibling SNAPSHOTs, which come from the local repository and may be stale.
-- **Candidate**: `-pl <module> -am -DfailWhenNoMutations=false` from the reactor root. Not yet
-  verified with `mutationCoverage`: with `-am`, the goal also runs in upstream modules, and they
-  share `reportsDirectory`. It becomes the default only if M5 verifies it, with per-module report
-  directories.
+- **The root module** (`.`): `-f pom.xml`.
+- **A submodule**: keel-mutate probes `-pl <module> -am` with the pinned help plugin from the
+  repository root, once per module.
+  - **Reactor mode**, when the probe succeeds: `-pl <module> -am` on every Maven call for that
+    module, plus `-DfailWhenNoMutations=false` on the PIT run, so upstream modules with no target
+    pass.
+    - Sibling SNAPSHOTs come from the reactor, so nothing needs to be installed. The classpath check
+      runs with `test-compile`, because a sibling's classes exist only once the reactor has
+      compiled them.
+    - Upstream modules share `reportsDirectory`, but the requested module runs last, so its report
+      is the final one.
+  - **`-f <module>/pom.xml`**, when there is no root reactor or it can't load (e.g. a broken
+    sibling POM). Sibling SNAPSHOTs then come from `~/.m2` and may be stale or missing; a missing
+    one is a tool failure that names the module.
+- The chosen arguments are saved in `<out>/<module>/module-args` and recorded in `test-quality.md`.
+- Module paths must not contain spaces.
 
 ### Tool resolution (all versions pinned in `lib/versions.sh`)
 
@@ -143,8 +160,15 @@ key  class  method  line  mutator  status  in_scope  killing  succeeding
 ## `keel-classify`
 
 ```text
-keel-classify <mutants.tsv> [--triage specs/<NNN>/test-quality.triage.tsv] > classification.tsv
+keel-classify <mutants.tsv> [--triage specs/<NNN>/test-quality.triage.tsv] [--out <file>] [--summary]
 ```
+
+- `--out <file>` writes the rows to a file, so callers never redirect into `.git`, and keeps the
+  exit code.
+- `--summary` prints only the `test-quality.md` Summary line:
+  `SUMMARY=<n> mutants (<n> in scope); killed <k>; coverage gaps <c>; assertion gaps <a>; triaged <t>; excluded <x>`.
+  NO_TEST rows count as coverage gaps but not as generated mutants; when there are any, the coverage
+  count reads `<c> (<u> with no test)`. The model copies the line and never counts by hand.
 
 Pure POSIX awk under `LC_ALL=C`, deterministic (FR-031). `triage.tsv` holds `key reason` rows,
 written by the `mutate` skill.

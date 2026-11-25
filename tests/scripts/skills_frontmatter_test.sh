@@ -9,9 +9,9 @@
 set -u
 . "$(cd "$(dirname "$0")/.." && pwd)/lib.sh"
 S="$KEEL_PLUGIN_ROOT/skills"
-STEP_SKILLS="constitution specify clarify plan tasks analyze implement review finish"
-GUARD_SKILLS="run debug verify respond-review"
-COMMIT_SKILLS="analyze implement review finish"
+STEP_SKILLS="constitution specify clarify plan tasks analyze implement mutate review finish"
+GUARD_SKILLS="run debug verify respond-review test-audit"
+COMMIT_SKILLS="analyze implement mutate review finish"
 
 fm() { awk 'NR == 1 && /^---$/ { f = 1; next } f && /^---$/ { exit } f' "$1"; }
 

@@ -25,4 +25,13 @@ assert_contains "$(cat "$KEEL_PLUGIN_ROOT/agents/code-reviewer.md" 2>/dev/null)"
 for field in '**Verdict**: PASS | FIX' '**Spec compliance**:' '**RED validity**:' '**Behavior unchanged**:' '**Test quality**:' '**Issues**:'; do
   assert_contains "$(cat "$KEEL_PLUGIN_ROOT/agents/task-reviewer.md" 2>/dev/null)" "$field" "task-reviewer returns $field"
 done
+
+# test-quality.md (contracts/mutation-runner.md §test-quality.md)
+tq=$(cat "$T/test-quality.md" 2>/dev/null)
+for field in '# Test Quality: {{FEATURE}}' '**Base**:' '**Tool**: PIT 1.30.2 + pitest-junit5-plugin 1.2.3 + junit-platform-launcher' \
+             '**Command**:' '**Module args**:' '**Scope**:' '**Summary**:' 'mutants (' 'in scope); killed' 'coverage gaps' 'assertion gaps' 'triaged' 'excluded' \
+             '## Gaps (in scope)' '| Key | Location | Mutator | Status | Resolution |' '## Redundancy and overlap (not blocking)' '## Rounds'; do
+  assert_contains "$tq" "$field" "test-quality.md has $field"
+done
+assert_eq '**Result**: resolved | not-run (<reason>)' "$(printf '%s\n' "$tq" | grep '^\*\*Result\*\*:')" "Result allows only resolved or not-run"
 t_summary

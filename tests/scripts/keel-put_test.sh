@@ -19,4 +19,10 @@ assert_exit 1 "rejects a bad feature name" -- sh -c "cd '$r' && echo x | '$P' '.
 assert_eq "no" "$([ -e "$rp/.git/escape.md" ] && echo yes || echo no)" "nothing written outside scratch"
 printf 'v2\n' | (cd "$r" && "$P" 001-x reports/T001.md >/dev/null)
 assert_eq "v2" "$(cat "$rp/.git/keel/001-x/reports/T001.md")" "overwrites an existing file"
+
+# --audit: standalone test-audit reports go under .git/keel/audit/ (no feature)
+out=$(printf 'audit report\n' | (cd "$r" && "$P" --audit 20261126T101500/report.md))
+assert_eq "PATH=$rp/.git/keel/audit/20261126T101500/report.md" "$out" "--audit stores under .git/keel/audit/"
+assert_eq "audit report" "$(cat "$rp/.git/keel/audit/20261126T101500/report.md")" "content stored"
+assert_exit 1 "--audit rejects .." -- sh -c "cd '$r' && echo x | '$P' --audit ../x.md"
 t_summary

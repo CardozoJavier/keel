@@ -36,3 +36,30 @@ The run stopped at `mutate`. The `keel:mutate` skill doesn't exist in this sessi
 - Check that the keel plugin install includes `skills/mutate`. The orchestrator's table lists `keel:mutate`, but the skill list doesn't.
 - Once it's available, start a new Claude Code session and run `/keel:run`. It resumes at `mutate`, and `review` and `finish` follow.
 ```
+
+## test-audit trial (T068): `payment-service` in `payconductor`, 2026-11-25
+
+- **Report**: `keel/audit/20261125T205855/report.md`
+- **Summary**: 0 mutants (0 in scope); killed 0; coverage gaps 22; assertion gaps 0; triaged 0; excluded 0`
+- **Module args**: `-f payment-service/pom.xml`
+- **Commits**: none; **tree**: unchanged.
+- **Final message**:
+
+```text
+- **Report:** `.git/keel/audit/20261125T205855/report.md`
+- **Summary:** `0 mutants (0 in scope); killed 0; coverage gaps 22; assertion gaps 0; triaged 0; excluded 0`
+- **Why it reads 0:** `payment-service/src/test` has no files, so PIT never mutated any bytecode. The 22 `NO_TEST` rows in `classification.tsv` are one per class. The "0 mutants" figure contradicts those rows, so use the table, not the summary line.
+- **`command.txt`:** it came out empty, so the report doesn't show the exact Maven command.
+
+**Top findings**
+- `Payment`, `PaymentStatus` and `Money` have no tests. These are the state transitions and money arithmetic, so they come first.
+- `PaymentCommandHandler` has no tests. Cover idempotent command handling, save-then-publish ordering and error paths with in-memory port fakes.
+- The five event records have no payload tests.
+- `PostgresPaymentRepository` and `KafkaPaymentEventPublisher` need Testcontainers integration tests. Cover optimistic-lock conflicts and the outbox.
+- `PaymentController` and the DTOs have no validation or mapping tests. `KafkaConfig` and `PaymentServiceApplication` need only a smoke test.
+
+**Next step:** run `/keel:run` to add domain unit tests for `Money`, `Payment` and `PaymentStatus` first. Then re-run `/keel:test-audit payment-service` to get real mutation results.
+```
+
+Follow-up from this trial: the summary line now reads `coverage gaps 22 (22 with no test)` when
+classes have no test, and `command.txt` records why PIT was not run (research R7.6).

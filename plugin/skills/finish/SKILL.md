@@ -30,14 +30,17 @@ otherwise run `keel-state next` and use its `FEATURE=` value. `<base>` is `BASE=
    production paths.
 3. **None**: skip this step and say so.
 4. **Some**:
-   - Run `keel-mutate --base <base> --classes <changed classes>` (contracts/mutation-runner.md),
-     and resolve the gaps exactly as the `mutate` step does, in `FIN-n` gap units: test paths only,
-     each with an implementer, `keel-verify` and a commit.
-   - Show their triage rows to one scoped `keel:code-reviewer` correctness pass.
-   - A `not-run` result or exit 10 is skipped and reported, never a halt. Exit 11 goes to `debug`
-     in a `FIN-n` unit (`intent=fix`). Exit 12 halts.
-   - If `keel-mutate` isn't available in this keel version, report "re-mutation not run:
-     keel-mutate unavailable" and continue.
+   - Run `keel-mutate --out <scratch>/mut/fin-<k> --base <base> --feature <feature> --classes <changed
+     classes (FQCN)>` **in the background** (contracts/mutation-runner.md).
+   - Classify it with
+     `keel-classify <out>/mutants.tsv --triage specs/<feature>/test-quality.triage.tsv --out <out>/classification.tsv`.
+   - Resolve the gaps exactly as the `mutate` step does, in `FIN-n` gap units: test paths only (or
+     triage rows), each with an implementer, a task review, `keel-verify` and a commit.
+   - Show the new triage rows to one scoped `keel:code-reviewer` correctness pass.
+   - A `not-run` result (exit 10) is skipped and reported, never a halt. Exit 11 goes to `debug` in
+     a `FIN-n` unit (`intent=fix`). Exit 12 halts.
+   - Keep the `--summary` line and the resolutions for the re-mutation section of
+     `test-quality.md` (step 3).
 
 ## 2. Full verify
 

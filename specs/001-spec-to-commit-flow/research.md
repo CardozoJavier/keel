@@ -276,6 +276,32 @@ keel may rely only on bash and git (constitution, Plugin Constraints). The only 
     `changes-design` finding to in-design while admitting the fix only met "exact to the cent"
     approximately. The review skill now keeps a reviewer's `changes-design` scope unless an
     in-design fix fully meets every cited requirement.
+- **R7.6 Module arguments for mutation analysis** (T068, 2026-11-25, verification item 10):
+  - **Setup**: a two-module reactor where `app` depends on `lib`. The feature changes `app` only,
+    and nothing is installed in `~/.m2`.
+  - **`-f app/pom.xml`** (the planned default) **fails**: "Could not resolve dependencies …
+    example.multi:lib:jar:1.0.0-SNAPSHOT". A clean multi-module checkout can't use it.
+  - **`-pl app -am`** with `-DfailWhenNoMutations=false` **works**.
+    - `lib` logs "No mutations found" and passes.
+    - `app` runs last, and its `mutations.xml` is the final one (2 mutants, both from
+      `app.Checkout`).
+    - A goal-only call (`dependency:list`) needs `test-compile` in the same run, or the reactor
+      has no classes for `lib`.
+  - **PayConductor**: the root reactor can't load, because `projection-service/pom.xml` has a
+    dependency with no version (`quarkus-smallrye-reactive-messaging-kafka`). This is R5's "broken
+    sibling".
+  - **Decision**: keel-mutate probes reactor mode per submodule (`-pl <m> -am` with the pinned help
+    plugin) and falls back to `-f <m>/pom.xml`. Both paths are tested:
+    - the fast tier, against a fake reactor and a fake failure;
+    - the slow tier, on a real two-module reactor with nothing installed;
+    - the PayConductor audit, which uses the fallback.
+  - **PayConductor audit** (`payment-service`, read-only):
+    - 22 classes, all NO_TEST: the module has no tests yet, so PIT wasn't run.
+    - Report under `.git/keel/audit/`. The tree is unchanged and nothing was committed.
+    - The run exposed two clarity fixes, now made:
+      - the summary now says `coverage gaps 22 (22 with no test)` instead of reading as "0
+        mutants";
+      - `command.txt` says why PIT wasn't run.
   - **Item 1** (user `!` commands): interactive-only, checked in T058/T080. It isn't required by
     FR-022, which covers the assistant's actions.
   - **Item 9** (minimum git for config hooks): the exact version is not determinable offline.

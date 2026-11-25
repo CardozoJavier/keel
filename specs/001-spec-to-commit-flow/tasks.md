@@ -431,24 +431,24 @@ the POM stays byte-identical (SC-013, SC-014).
 
 ### Tests for User Story 3 (REQUIRED - write first, confirm they fail) ⚠️
 
-- [ ] T059 [P] [US3] Create the seeded fixture `tests/fixtures/maven-weak/`: a JDK 21 and JUnit 5 Maven project whose class has a missing-assertion test, an untested branch and two duplicate tests. Add the expected classification in `tests/fixtures/maven-weak/expected.tsv`.
-- [ ] T060 [P] [US3] Write the slow-tier test `tests/slow/mutation_test.sh` and confirm it fails before T064. It runs the real `keel-mutate` and `keel-classify` on a git copy of maven-weak and checks that:
+- [X] T059 [P] [US3] Create the seeded fixture `tests/fixtures/maven-weak/`: a JDK 21 and JUnit 5 Maven project whose class has a missing-assertion test, an untested branch and two duplicate tests. Add the expected classification in `tests/fixtures/maven-weak/expected.tsv`.
+- [X] T060 [P] [US3] Write the slow-tier test `tests/slow/mutation_test.sh` (written after T064's fast test, so its own RED wasn't observed separately; it also covers a two-module reactor with nothing installed, R7.6). It runs the real `keel-mutate` and `keel-classify` on a git copy of maven-weak and checks that:
   - all three seeded weaknesses are reported;
   - the POM and `.mvn/` are byte-identical before and after;
   - raw output exists only under `.git/keel/`.
 
 ### Implementation for User Story 3
 
-- [ ] T061 [P] [US3] Write the PIT XML → TSV parser `plugin/lib/pit-xml.sh`, with tests in `tests/scripts/pit-xml_test.sh` using `tests/fixtures/pit/` (a copy of the spike's `mutations.xml`, plus cases for XML entities, `test-factory`/`dynamic-test` IDs and nested classes) (test first).
+- [X] T061 [P] [US3] Write the PIT XML → TSV parser `plugin/lib/pit-xml.sh`, with tests in `tests/scripts/pit-xml_test.sh` using `tests/fixtures/pit/` (a copy of the spike's `mutations.xml`, plus cases for XML entities, `test-factory`/`dynamic-test` IDs and nested classes) (test first).
   - It expects one `<mutation>` per line.
   - It writes the stable key `class|method|desc|mutator|indexes` and normalized test IDs.
   - A malformed line is exit 12.
-- [ ] T062 [P] [US3] Write `plugin/bin/keel-classify`, with tests in `tests/scripts/keel-classify_test.sh` using seeded TSVs (test first).
+- [X] T062 [P] [US3] Write `plugin/bin/keel-classify`, with tests in `tests/scripts/keel-classify_test.sh` using seeded TSVs (test first).
   - Pure POSIX awk under `LC_ALL=C`.
   - Classes: coverage-gap, assertion-gap, triaged (from `--triage`), out-of-scope, redundant, kills-nothing, overlap, excluded.
   - Exit codes: 0, 1 when anything blocks, 2 for malformed input.
-- [ ] T063 [P] [US3] Pin the tool versions in `plugin/lib/versions.sh`: PIT 1.30.2, pitest-junit5-plugin 1.2.3, maven-dependency-plugin 3.8.1 and maven-help-plugin 3.5.1. The test, `tests/scripts/versions_test.sh`, asserts that every Maven invocation in `plugin/bin/keel-mutate` uses only pinned coordinates.
-- [ ] T064 [US3] Write `plugin/bin/keel-mutate` (`--base`/`--module`, `--classes`, `--tests`, `--budget`, `--maven`), with fast tests in `tests/scripts/keel-mutate_test.sh` against a fake mvn and `tests/slow/mutation_test.sh` against real Maven (test first).
+- [X] T063 [P] [US3] Pin the tool versions in `plugin/lib/versions.sh`: PIT 1.30.2, pitest-junit5-plugin 1.2.3, maven-dependency-plugin 3.8.1 and maven-help-plugin 3.5.1. The test, `tests/scripts/versions_test.sh`, asserts that every Maven invocation in `plugin/bin/keel-mutate` uses only pinned coordinates.
+- [X] T064 [US3] Write `plugin/bin/keel-mutate` (`--base`/`--module`, `--classes`, `--tests`, `--budget`, `--maven`), with fast tests in `tests/scripts/keel-mutate_test.sh` against a fake mvn and `tests/slow/mutation_test.sh` against real Maven (test first).
   - Scope: changed lines from `git diff -U0 <base> HEAD`.
   - Unit-test selection: excludes integration-test names and annotations, and tests failing at baseline.
   - Exit-10 preconditions: no Java change, no POM, no JUnit Platform, or a host-configured pitest.
@@ -458,8 +458,8 @@ the POM stays byte-identical (SC-013, SC-014).
   - Fail-closed checks 1–5 give exit 12.
   - A budget watchdog, since there is no GNU `timeout`.
   - Output: `mutants.tsv` with `in_scope`.
-- [ ] T065 [US3] Write the template `plugin/templates/test-quality.md`, following the format in contracts/mutation-runner.md. The test, `tests/scripts/templates_test.sh` (extended), checks the required fields. `Result` allows only `resolved` or `not-run`.
-- [ ] T066 [US3] Write the skill `plugin/skills/mutate/SKILL.md`. Evals: `plugin/evals/mutate-not-run/` (an unsupported project gives `not-run`, with the reason) and `plugin/evals/mutate-gaps/`.
+- [X] T065 [US3] Write the template `plugin/templates/test-quality.md`, following the format in contracts/mutation-runner.md. The test, `tests/scripts/templates_test.sh` (extended), checks the required fields. `Result` allows only `resolved` or `not-run`.
+- [X] T066 [US3] Write the skill `plugin/skills/mutate/SKILL.md`. Scenarios (RED confirmed first): `us3_mutate_not_run` (an unsupported change gives `not-run`, with the reason) and `us3_mutate_gaps` (MUT-1 closes the seeded gaps; an independent re-run agrees).
   - `require`, then `keel-mutate` in the background, then `keel-classify --triage specs/<NNN>/test-quality.triage.tsv`.
   - Up to 3 `MUT-n` units, each with:
     - an implementer working on tests only;
@@ -470,8 +470,8 @@ the POM stays byte-identical (SC-013, SC-014).
     - a re-run on the affected classes.
   - Exit codes: 10 → `not-run`; 11 → `debug` in a `MUT-n`; 12 → halt.
   - Ends with `test-quality.md`, `keel-verify --label test-quality` and the commit.
-- [ ] T067 [US3] Write the skill `plugin/skills/test-audit/SKILL.md`, user-invocable. It runs `keel-mutate --module` and `keel-classify`, writes its report to `.git/keel/audit/<ts>/report.md` through the script, never edits build files, and needs no feature run. Eval: `plugin/evals/test-audit-standalone/`.
-- [ ] T068 [US3] Run verification item 10 and the PayConductor audit (non-behavior).
+- [X] T067 [US3] Write the skill `plugin/skills/test-audit/SKILL.md`, user-invocable. It runs `keel-mutate --module` and `keel-classify`, writes its report to `.git/keel/audit/<ts>/report.md` through the script, never edits build files, and needs no feature run. Scenario: `us6_test_audit_standalone` (RED confirmed against a plugin copy without the skill). The report is written through `keel-put --audit`.
+- [X] T068 [US3] Run verification item 10 and the PayConductor audit (non-behavior).
   - Probe `-pl <module> -am` with `mutationCoverage` on a copy of maven-weak turned multi-module. Record the result in research.md (R7) and switch the default only if it is verified.
   - Run `/keel:test-audit payment-service` read-only against PayConductor and record the report summary in `tests/trials/RESULTS.md`.
 

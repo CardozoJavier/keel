@@ -112,6 +112,7 @@ keel-branch next-number        → NNN = 1 + max(specs/NNN-* dirs, local NNN-* b
 keel-ledger append <feature> <step> <status> <ref> [detail…]
 keel-ledger last   <feature> <step>          → the last row, or exit 3
 keel-put <feature> <relpath>                 → reads stdin, writes <scratch>/<relpath> (creates dirs), prints PATH=<abs>
+keel-put --audit <relpath>                   → the same under .git/keel/audit/ (standalone test-audit reports; no feature)
 ```
 
 - **File rows**: `keel-ledger append <f> files done - <path>` records a file keel wrote for the
