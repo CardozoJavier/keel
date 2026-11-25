@@ -1,0 +1,26 @@
+# note<TAB>git arguments. Run in order in one fixture repo; none may be blocked by keel.
+status	status
+log mentioning push	log --oneline --grep=push
+commit message mentioning push	commit --allow-empty -m "push notifications"
+stash push	stash push -m wip
+stash pop	stash pop
+commit popped work	commit -q -am wip
+rebase -x non-publishing	rebase -q -x true HEAD~1
+reset hard	reset -q --hard HEAD
+branch	branch feature-x
+switch	switch -q feature-x
+commit on branch	commit --allow-empty -q -m "x"
+switch back	switch -q main
+cherry-pick	cherry-pick --allow-empty feature-x
+merge	merge -q --no-edit feature-x
+fetch	fetch -q origin
+ls-remote	ls-remote origin
+tag	tag v1
+-C	-C . status
+alias read	config --get alias.pp
+protected key read	config --get-regexp url
+list	config --list
+plain config write	config user.name keel-test
+remote -v	remote -v
+non-push alias	co main
+version	--version

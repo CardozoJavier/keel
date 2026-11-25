@@ -720,7 +720,7 @@ plugin/                             # the plugin root (no CLAUDE.md here, so val
 ├── hooks/{hooks.json,session-env.sh,deny-push,guard-push.sh}
 ├── shims/{git,gh,jj,sl,gt,glab,hub,git-remote-keel-blocked-push}
 ├── bin/keel-{state,branch,ledger,put,brief,diff,evidence,verify,mutate,classify}
-├── lib/{common,json,pit-xml,versions,shim-common,guard-check}.sh, lib/git-builtins.txt
+├── lib/{common,json,pit-xml,versions,shim-common,guard-check}.sh, lib/git-builtins.sh
 ├── templates/{brief,report,test-quality,plan-review,finding}.md
 ├── vendor/{PROVENANCE.md,CHANGELOG.md,speckit/,superpowers/,feature-dev/}
 └── NOTICE

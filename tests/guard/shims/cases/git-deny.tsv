@@ -1,0 +1,39 @@
+# rule<TAB>git arguments (evaluated with eval set --). Every case must exit 2 with "(rule)".
+A1	push
+A1	push origin main
+A1	push --no-verify origin main
+A1	push --force-with-lease origin HEAD:refs/heads/x
+A1	-C . push
+A1	-c color.ui=false push
+A1	--git-dir=.git push
+A1	--no-pager push origin HEAD
+A1	-P push
+A1	send-pack origin main
+A1	http-push x
+A1	send-email x.patch
+A1	imap-send
+A1	pp
+A1	p2 origin main
+A1	-c alias.zz=push zz
+A1	--config-env=alias.zz=KEEL_TEST_ALIAS zz
+A2	svn dcommit
+A2	svn set-tree HEAD
+A2	p4 submit
+A2	lfs push origin main
+A2	subtree push --prefix=x origin main
+A3	remote-https origin https://example.invalid/x.git
+A3	receive-pack .
+A8	config url.x.pushInsteadOf y
+A8	config --global url.x.insteadOf y
+A8	config remote.origin.pushurl /x
+A8	config set hook.x.command y
+A8	config --add include.path x
+A8	config includeIf.gitdir:/x/.path y
+A8	config core.hooksPath /h
+A8	config --unset url.x.pushinsteadof
+A8	remote set-url --push origin /x
+A8	remote set-url --add --push origin /x
+A8	-c core.hooksPath=/h status
+A8	-c hook.k.command=x commit --allow-empty -m x
+A8	-c URL.x.PushInsteadOf=y fetch
+A8	--config-env=core.hooksPath=KEEL_TEST_ALIAS status

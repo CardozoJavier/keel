@@ -107,7 +107,7 @@ case passes.
   - Extracts `tool_name`, `tool_input.command`, `tool_input.sandbox`, `tool_input.config` and `cwd`.
   - Decodes `\" \\ \/ \b \f \n \r \t` and ASCII `\u00XX`, and leaves non-ASCII escapes as they are.
   - Fails on invalid JSON, duplicate keys or a missing key.
-- [ ] T010 Write real-binary discovery for shims in `plugin/lib/shim-common.sh`, with tests in `tests/guard/shims/discovery_test.sh` (test first).
+- [X] T010 Write real-binary discovery for shims in `plugin/lib/shim-common.sh`, with tests in `tests/guard/shims/discovery_test.sh` (test first).
   - Use `$KEEL_REAL_<TOOL>`, else a PATH search that skips:
     - empty and relative entries;
     - the shim's own resolved directory;
@@ -115,8 +115,8 @@ case passes.
   - Require `-f` and `-x`.
   - Recursion guard: `KEEL_SHIM_DEPTH` above 3 exits 2 with rule `AF`.
   - Test cases: two shim directories on PATH, and a directory named `git`.
-- [ ] T011 Generate and check the embedded git builtin list `plugin/lib/git-builtins.txt`, using the generator `tests/tools/gen-git-builtins.sh` (`git --list-cmds=main`). Test first: `tests/guard/shims/builtins_test.sh`, which fails when the list drifts from the installed git.
-- [ ] T012 Write the git shim `plugin/shims/git`, with tests in `tests/guard/shims/git_test.sh` and the corpora `tests/guard/shims/cases/git-{allow,deny}.tsv` (test first).
+- [X] T011 Generate and check the embedded git builtin list `plugin/lib/git-builtins.sh`, using the generator `tests/tools/gen-git-builtins.sh` (`git --list-cmds=main`). Test first: `tests/guard/shims/builtins_test.sh`, which fails when the list drifts from the installed git.
+- [X] T012 Write the git shim `plugin/shims/git`, with tests in `tests/guard/shims/git_test.sh` and the corpora `tests/guard/shims/cases/git-{allow,deny}.tsv` (test first).
   - Global-option skipping and alias resolution through the real git with the same options, at most 5 levels.
   - Rules A1, A2 (git parts), A3 and A8; the exit-2 message format; `AF` on internal error.
   - Allow cases include `stash push`, `rebase -x 'mvn -q test'`, `reset --hard`, `cherry-pick`, `commit -m "push …"` and `lfs pull`.
