@@ -203,7 +203,7 @@ case passes.
 - [X] T028 Write `plugin/bin/keel-brief` (`<unit> [--from <path>]`) and `plugin/templates/brief.md`, following the brief format in contracts/agent-handoffs.md. Tests in `tests/scripts/keel-brief_test.sh` (test first).
   - For tasks: the tasks.md line, `[US#]`, the FR and acceptance-scenario excerpts, and plan/data-model/contracts excerpts by path.
   - For MUT, REV and FIN units: the `--from` content, the touched FRs, `intent` and allowed paths.
-- [ ] T029 Write `plugin/bin/keel-state` (`next`/`require`/`facts`), with tests in `tests/scripts/keel-state_test.sh` using fixture feature directories under `tests/fixtures/repos/` (test first).
+- [X] T029 Write `plugin/bin/keel-state` (`next`/`require`/`facts`), with tests in `tests/scripts/keel-state_test.sh` using fixture feature directories under `tests/fixtures/repos/` (test first).
   - Progress and gate candidates, read from finish downward (data-model.md §2).
   - Drift rules and the `not-a-keel-feature` test (no `**Base**` line).
   - Feature binding and `feature.json` rewriting in Spec Kit's exact format.
@@ -214,7 +214,7 @@ case passes.
     - `review done` followed by FIN commits (holds), and by a commit without an ID (re-runs);
     - `Approved` without `Path` (drift);
     - a stale `feature.json`.
-- [ ] T030 Add `keel-state recover` to `plugin/bin/keel-state`, with tests in `tests/scripts/keel-recover_test.sh` (test first).
+- [X] T030 Add `keel-state recover` to `plugin/bin/keel-state`, with tests in `tests/scripts/keel-recover_test.sh` (test first).
   - Every case in data-model.md §5:
     - closed and abandoned units;
     - deferred recovery;

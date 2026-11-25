@@ -264,8 +264,9 @@ boundary, §3).
   `recover` again.
 - **Dirty tree, HEAD equal to BASE, on the feature branch**: try to recover (below).
 - **Dirty tree, HEAD past BASE**: `HALT=unattributed-changes`.
-- **No ledger and a dirty tree (outside the unit-scope exemptions)**:
-  `HALT=unattributed-changes`.
+- **No open unit (or no ledger) and a dirty tree**: `recover` reports `RECOVERED=none` and touches
+  nothing. `keel-branch ensure`, which runs next, halts on anything outside the ensure-scope
+  exemptions. This keeps an uncommitted spec or plan before the docs commit resumable.
 
 **After a halt**: halts append `halted` to the unit, and `recover` never acts on a halted unit.
 Changes the developer made after a halt are theirs. To continue, the developer either:
