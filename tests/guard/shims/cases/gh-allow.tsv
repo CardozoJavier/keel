@@ -1,0 +1,24 @@
+# note<TAB>gh arguments. None may be blocked; the fake real gh must receive the same argv.
+pr view	pr view 3
+pr list	pr list
+pr checks	pr checks 3
+pr diff	pr diff 3
+pr edit metadata	pr edit 3 --title x
+pr comment	pr comment 3 --body x
+pr checkout via alias	co 3
+issue create	issue create --title x --body y
+api GET pulls	api repos/o/r/pulls
+api GET pull	api repos/o/r/pulls/3
+api comment POST	api repos/o/r/pulls/3/comments -f body=x
+api review POST	api -X POST repos/o/r/pulls/3/reviews -f event=COMMENT
+api PATCH pull title	api -X PATCH repos/o/r/pulls/3 -f title=x
+api graphql query	api graphql -f query="query { viewer { login } }"
+api graphql query file	api graphql -F query=@query.graphql
+agent-task list	agent-task list
+version flag	--version
+version cmd	version
+help	help pr
+status	status
+run list	run list
+auth status	auth status
+shell alias	shellish

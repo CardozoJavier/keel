@@ -1,0 +1,35 @@
+# rule<TAB>gh arguments. Every case must exit 2 with "(rule)".
+A4	pr create --fill
+A4	pr new
+A4	pr merge 3 --squash
+A4	pr update-branch 3
+A4	pr revert 3
+A4	pr reopen 3
+A4	pr ready 3
+A4	-R o/r pr create
+A4	repo sync
+A4	repo create o/new --source . --push
+A4	release create v1.0.0
+A4	mkpr
+A4	agent-task create "do it"
+A4	copilot
+A5	api -X POST repos/o/r/pulls -f title=x
+A5	api -XPOST repos/o/r/pulls -f title=x
+A5	api --method=POST /repos/o/r/pulls
+A5	api repos/o/r/pulls -f title=x -f head=b -f base=main
+A5	api -X PUT repos/o/r/pulls/3/merge
+A5	api -X PUT repos/{owner}/{repo}/pulls/3/update-branch
+A5	api -X PATCH repos/o/r/git/refs/heads/main -f sha=abc
+A5	api -X DELETE repos/o/r/git/refs/heads/feature
+A5	api -X POST repos/o/r/git/commits --input body.json
+A5	api -X PUT repos/o/r/contents/README.md -f message=x -f content=eA==
+A5	api -X POST repos/o/r/merges -f base=main -f head=x
+A5	api -X POST repos/o/r/merge-upstream -f branch=main
+A5	api -X POST api/v3/repos/o/r/pulls -f title=x
+A5	api -X PATCH repos/o/r/pulls/3 -f state=open
+A5	api graphql -f query="mutation { createPullRequest(input:{}) { clientMutationId } }"
+A5	api graphql -F query=@mutation.graphql
+A5	api graphql -F query=@missing.graphql
+A5	api graphql --input -
+A6	some-extension do-things
+A6	unknowncmd

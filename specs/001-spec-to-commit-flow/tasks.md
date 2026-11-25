@@ -122,11 +122,11 @@ case passes.
   - Allow cases include `stash push`, `rebase -x 'mvn -q test'`, `reset --hard`, `cherry-pick`, `commit -m "push …"` and `lfs pull`.
   - Deny cases include `-c alias.p=push p`, an alias configured through `GIT_CONFIG_COUNT`, `config url.x.pushInsteadOf`, `remote set-url --push` and `-c core.hooksPath=…`.
   - Shell-alias cases (`gp`, `gpsup`, `ggpush`, `ggp`) run through `zsh -c` with the snapshot fixture `tests/fixtures/snapshot/aliases.zsh`.
-- [ ] T013 Write the gh shim `plugin/shims/gh`, with tests in `tests/guard/shims/gh_test.sh` and the corpora `tests/guard/shims/cases/gh-{allow,deny}.tsv` (test first).
+- [X] T013 Write the gh shim `plugin/shims/gh`, with tests in `tests/guard/shims/gh_test.sh` and the corpora `tests/guard/shims/cases/gh-{allow,deny}.tsv` (test first).
   - Rules A4, A5 and A6: write-method parsing (`-XPOST`, `--method=`, field flags), the endpoint regex, `PATCH pulls/N state=open`, GraphQL mutation names (inline and `query=@file`; an unreadable file means deny), and alias resolution through `gh alias list`.
   - Core subcommands pass, extensions and unknown subcommands are denied, and `--version`/`version`/`help` pass.
   - Allow cases include `pr view`, `pr edit` and comment POSTs.
-- [ ] T014 [P] Write the thin shims `plugin/shims/{jj,sl,gt,glab,hub}` with rule A7, with tests in `tests/guard/shims/others_test.sh` (test first; a fake real binary on PATH records its argv).
+- [X] T014 [P] Write the thin shims `plugin/shims/{jj,sl,gt,glab,hub}` with rule A7, with tests in `tests/guard/shims/others_test.sh` (test first; a fake real binary on PATH records its argv).
 - [ ] T015 Write layer A0 and the session environment, with tests in `tests/guard/a0_test.sh` against a local bare-remote fixture (test first).
   - Write `plugin/hooks/deny-push`, `plugin/shims/git-remote-keel-blocked-push` and `plugin/hooks/session-env.sh`.
   - `session-env.sh` appends to `$CLAUDE_ENV_FILE`:
