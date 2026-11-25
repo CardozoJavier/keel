@@ -718,15 +718,16 @@ plugin/                             # the plugin root (no CLAUDE.md here, so val
 ├── hooks/{hooks.json,session-env.sh,deny-push,guard-push.sh}
 ├── shims/{git,gh,jj,sl,gt,glab,hub,git-remote-keel-blocked-push}
 ├── bin/keel-{state,branch,ledger,put,brief,diff,evidence,verify,mutate,classify}
-├── lib/{common,json,pit-xml,versions,shim-common}.sh
+├── lib/{common,json,pit-xml,versions,shim-common,guard-check}.sh, lib/git-builtins.txt
 ├── templates/{brief,report,test-quality,plan-review,finding}.md
 ├── vendor/{PROVENANCE.md,CHANGELOG.md,speckit/,superpowers/,feature-dev/}
 └── NOTICE
 tests/
 ├── run.sh  lib.sh  mutation-self-check.sh
-├── guard/{shims,hook}/cases/{deny,allow,failclosed}/  perf.sh
+├── guard/{shims/cases/*.tsv, hook/cases/{deny,allow,failclosed}/*.json, *_test.sh, perf_test.sh}
 ├── scripts/*_test.sh
-├── fixtures/{repos/,pit/,maven-weak/,snapshot/}
+├── fixtures/{repos/,pit/,maven-weak/,sample-maven/,surefire/,snapshot/}
+├── slow/  trials/RESULTS.md  tools/
 └── eval/
 specs/  .specify/  .claude/skills/speckit-*   # keel's own development (Spec Kit)
 NOTICE  README.md  CLAUDE.md
