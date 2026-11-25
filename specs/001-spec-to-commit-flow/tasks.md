@@ -14,7 +14,7 @@ data-model.md, contracts/, quickstart.md)
 | Kind of change | Test |
 |---|---|
 | Script | A `tests/**/*_test.sh` suite that `tests/run.sh` runs. |
-| Skill or agent | An eval scenario under `plugin/evals/` (run by `tests/eval/evals_test.sh` through `tests/run.sh --eval`). |
+| Skill or agent | A scenario check `tests/scenarios/<story>_<case>_scenario.sh`: a real `claude -p --plugin-dir` session with deterministic asserts, run by `tests/run.sh --scenarios`. `claude plugin eval` can't execute keel's scripts or shim (research R7.3), so it keeps only the smoke case. Where a later task names `plugin/evals/<case>/`, the check is `tests/scenarios/<story>_<case>_scenario.sh`. |
 | Behavior task | One task covers RED, GREEN and refactor, and names both the test path and the production path (plan §Tasks and analyze). Write the test first and confirm it fails. |
 | Non-behavior task (setup, vendoring, docs, empirical checks) | Named as such in the task. |
 
@@ -243,38 +243,41 @@ exactly two approvals (one on the light path).
 
 ### Tests for User Story 1 (REQUIRED - write first, confirm they fail) ⚠️
 
-- [ ] T031 [P] [US1] Write eval scenarios for planning, in the format from T008, and confirm they fail before the skills exist:
-  - `plugin/evals/plan-before-gate1/`: plan is refused before Gate 1.
-  - `plugin/evals/no-light-for-contract/`: a contract change isn't offered the light path.
-  - `plugin/evals/two-gates/`: exactly two approval prompts through plan GO (a `history_file` chain).
-  - `plugin/evals/light-one-gate/`: one approval on the light path.
-- [ ] T032 [P] [US1] Create the sample Maven fixture `tests/fixtures/sample-maven/`: a minimal JDK 21 project with JUnit 5, one class and one test, plus a CLAUDE.md giving build/test commands and a commit style. Write `tests/fixtures/mk-sample.sh` to copy it into a fresh git repo for evals and trials.
+- [X] T031 [P] [US1] Write scenario checks for planning and confirm they fail before the skills exist. They were first written as `plugin/evals/` cases and ran RED (0%) before the skills existed. Then they moved to `tests/scenarios/us1_*_scenario.sh`, because the eval sandbox can't execute keel's scripts (research R7.3). Multi-turn gates use `claude -p --continue` instead of `history_file`:
+  - `us1_plan_before_gate1`: plan is refused before Gate 1.
+  - `us1_no_light_for_contract`: a contract change isn't offered the light path.
+  - `us1_run_stops_at_gate1`: run binds the feature (branch, `feature.json`), writes the spec and stops at Gate 1.
+  - `us1_constitution`: the constitution is built from CLAUDE.md by reference.
+  - `us1_two_gates`: exactly two approval prompts through plan GO.
+  - `us1_light_one_gate`: one approval on the light path.
+  - `us1_plan_reentry`: re-entry after Gate 2 runs no architects and asks nothing again.
+- [X] T032 [P] [US1] Create the sample Maven fixture `tests/fixtures/sample-maven/`: a minimal JDK 21 project with JUnit 5, one class and one test, plus a CLAUDE.md giving build/test commands and a commit style. Write `tests/fixtures/mk-sample.sh` to copy it into a fresh git repo for evals and trials.
 
 ### Implementation for User Story 1
 
-- [ ] T033 [US1] Write the orchestrator skill `plugin/skills/run/SKILL.md`.
+- [X] T033 [US1] Write the orchestrator skill `plugin/skills/run/SKILL.md`.
   - Bind the feature: next-number, then `keel-branch ensure`, then `feature.json`; pass `--feature` everywhere.
   - Order: `recover`, then `ensure`, then `recover` again when it deferred.
   - Loop over `keel-state next` → Skill tool, and stop on `done`, a halt or a gate.
   - Halt reporting, with no question.
   - Arguments: `/keel:run "<desc>"`, `/keel:run`, `/keel:run NNN`.
-  - Evals: `plugin/evals/run-*/`.
-- [ ] T034 [P] [US1] Write the skill `plugin/skills/constitution/SKILL.md`. It runs `keel-state require constitution`, builds the constitution from the host CLAUDE.md files by reference (FR-002), proposes principles when there are none (accepted at Gate 1), and records keel-written files in the ledger. It is adapted from Spec Kit's constitution command and carries an `Adapted from` header. Eval: `plugin/evals/constitution/`.
-- [ ] T035 [US1] Write the skill `plugin/skills/specify/SKILL.md`, with an `Adapted from` header. Eval: `plugin/evals/specify/`.
+  - Scenarios: `us1_run_stops_at_gate1`, `us1_two_gates`.
+- [X] T034 [P] [US1] Write the skill `plugin/skills/constitution/SKILL.md`. It runs `keel-state require constitution`, builds the constitution from the host CLAUDE.md files by reference (FR-002), proposes principles when there are none (accepted at Gate 1), and records keel-written files in the ledger. It is adapted from Spec Kit's constitution command and carries an `Adapted from` header. Scenario: `us1_constitution`.
+- [X] T035 [US1] Write the skill `plugin/skills/specify/SKILL.md`, with an `Adapted from` header. Scenarios: `us1_no_light_for_contract`, `us1_run_stops_at_gate1`.
   - `require`, then `mem_search` when available, citing hits (FR-004).
   - Questions one at a time on intent, goals, non-goals and anti-goals (FR-005).
   - Writes `spec.md` from the vendored template, with the `**Base**` line in the same write.
   - Writes `## Change Classification` (FR-028).
   - Records the files in the ledger.
-- [ ] T036 [US1] Write the skill `plugin/skills/clarify/SKILL.md`, with an `Adapted from` header. Evals: from T031.
+- [X] T036 [US1] Write the skill `plugin/skills/clarify/SKILL.md`, with an `Adapted from` header. Scenarios: `us1_light_one_gate`, `us1_two_gates`.
   - Spec Kit's ambiguity scan, up to 5 questions.
   - **Gate 1**: present the spec and its classification.
   - On approval, write `**Status**: Approved (Gate 1, date)` and `**Path**: full|light` in a single edit.
   - Light is offered only when the criteria are clear (SC-010).
-- [ ] T037 [P] [US1] Write the agent `plugin/agents/explorer.md`, adapted from the vendored feature-dev code-explorer. It has the Apache §4(b) change notice, read-only tools and model sonnet, and returns its findings as its final message.
-- [ ] T038 [P] [US1] Write the agent `plugin/agents/architect.md`, adapted from the vendored code-architect. It takes one lens per call from the brief (smallest, clean, pragmatic) and doesn't commit to a single design. It has the Apache change notice, read-only tools and model inherit.
-- [ ] T039 [P] [US1] Write the agent `plugin/agents/plan-reviewer.md` and the template `plugin/templates/plan-review.md`. The agent is read-only and works in a fresh context. It returns four sections: critical flaws, missing assumptions, deltas and a verdict, GO or NO_GO.
-- [ ] T040 [US1] Write the skill `plugin/skills/plan/SKILL.md`. Evals: `two-gates` and `light-one-gate` from T031, plus `plugin/evals/plan-reentry/`.
+- [X] T037 [P] [US1] Write the agent `plugin/agents/explorer.md`, adapted from the vendored feature-dev code-explorer. It has the Apache §4(b) change notice, read-only tools and model sonnet, and returns its findings as its final message.
+- [X] T038 [P] [US1] Write the agent `plugin/agents/architect.md`, adapted from the vendored code-architect. It takes one lens per call from the brief (smallest, clean, pragmatic) and doesn't commit to a single design. It has the Apache change notice, read-only tools and model inherit.
+- [X] T039 [P] [US1] Write the agent `plugin/agents/plan-reviewer.md` and the template `plugin/templates/plan-review.md`. The agent is read-only and works in a fresh context. It returns four sections: critical flaws, missing assumptions, deltas and a verdict, GO or NO_GO.
+- [X] T040 [US1] Write the skill `plugin/skills/plan/SKILL.md`. Scenarios: `us1_plan_before_gate1`, `us1_two_gates`, `us1_light_one_gate`, `us1_plan_reentry`.
   - **Full path**:
     - `mem_search`, then 2–3 explorers in parallel, then architects (one lens each), then a recommendation, then **Gate 2**.
     - Write `## Design Decision` as soon as Gate 2 is answered. If the developer rejects all proposals, their own design is recorded as the chosen one, with its trade-offs against the proposals (spec edge case). Then the Phase 0/1 artifacts, then `**Plan status**: complete`.
@@ -316,7 +319,7 @@ own trial goes through implement (T058).
 
 ### Implementation for User Story 2
 
-- [ ] T042 [US2] Run verification items 2, 6 and 11 (non-behavior):
+- [X] T042 [US2] Run verification items 2, 6 and 11 (non-behavior) (results: research R7.4; the implementer gets plain `Bash`, permitted by the quickstart allow list):
   - `skills:` preload in plugin agents;
   - allow rules and skill `allowed-tools` inside plugin subagents, including here-document `keel-put`;
   - agent `tools` with Bash patterns.

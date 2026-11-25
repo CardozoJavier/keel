@@ -45,5 +45,7 @@ which is git-ignored.
 - **`plugins:` takes resolvable plugin names.** A bare `keel` is "does not exist", and a relative
   path doesn't enable it either. The plugin under test is loaded automatically, so cases don't set
   `plugins:`.
-- **Undocumented**: the `history_file` `.jsonl` format, whether a hook-blocked tool call counts in
-  `tool_used`, and the agent's exact cwd. T031 settles the first two empirically.
+- **The sandbox can't execute plugin files** (research R7.3). keel's scripts and git shim fail
+  with `operation not permitted`, so skill and agent behavior is checked with
+  `tests/scenarios/*_scenario.sh` (`tests/run.sh --scenarios`) instead. Only `smoke` stays here.
+- **`tool_used` with `max: 0` also needs `min: 0`**; otherwise the range is `1..0` and always fails.

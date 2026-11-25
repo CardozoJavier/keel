@@ -44,6 +44,7 @@ check_pristine() { # <upstream-name> <local-subdir> <upstream-dir>
 }
 check_pristine speckit templates "$HOME/.local/share/uv/tools/specify-cli/lib/python3.11/site-packages/specify_cli/core_pack/templates"
 check_pristine speckit scripts/bash "$HOME/.local/share/uv/tools/specify-cli/lib/python3.11/site-packages/specify_cli/core_pack/scripts/bash"
+check_pristine speckit commands "$HOME/.local/share/uv/tools/specify-cli/lib/python3.11/site-packages/specify_cli/core_pack/commands"
 check_pristine superpowers skills "$HOME/.claude/plugins/cache/claude-plugins-official/superpowers/7.0.2/skills"
 check_pristine feature-dev agents "$HOME/.claude/plugins/cache/claude-plugins-official/feature-dev/1.0.1/agents"
 

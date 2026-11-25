@@ -213,6 +213,44 @@ keel may rely only on bash and git (constitution, Plugin Constraints). The only 
   - **Item 8** (env lifetime): the env persists across `cd`, and after `claude -p --continue`
     (resume) `KEEL_ROOT`, the shim and all 5 A0 entries were present. `/clear`, compaction and
     fork are interactive-only; they are checked in the interactive trials (T058/T080).
+- **R7.3 Skill checks can't run under `claude plugin eval`** (T031, 2026-11-25):
+  - **Finding**: the eval sandbox refuses to **execute** files from the plugin directory. A skill's
+    `keel-state require …` failed with `operation not permitted: keel-state` (exit 127), and every
+    US1 case scored 0 for that reason, not because of skill behavior. `bash "$KEEL_ROOT/bin/…"`
+    works, but the git shim is executed directly by every `git` call, so the guard and every keel
+    script would have to be special-cased for the sandbox.
+  - **Decision**: keep `plugin/evals/smoke` (plugin loading). Check skill and agent behavior with
+    `tests/scenarios/*_scenario.sh`: real `claude -p --plugin-dir plugin` sessions in scaffolded
+    repos, with superpowers, feature-dev, pr-review-toolkit and engram disabled via `--settings`,
+    and deterministic asserts on files, branches and `keel-state`.
+  - **Mechanics**: a multi-turn gate is `claude -p --continue` in the same repo, which replaces
+    `history_file`. Agent dispatches are asserted on `--output-format stream-json` output.
+  - **Cost**: about one model session per turn. Scenarios run only with `tests/run.sh --scenarios`,
+    never in the default suite.
+- **R7.4 Agent preloads and permissions in subagents** (T042, 2026-11-25, verification items 2, 6
+  and 11):
+  - **Setup**: `tests/tools/t042_probe.sh`, with a probe plugin next to keel. Each case is a
+    `claude -p` session using haiku, `--setting-sources project` (no user rules) and
+    `--permission-mode default`, so only the rules named per case can allow a call.
+  - **Item 2**: a `skills:` preload works in plugin agents. A Read-only agent answered with the
+    preloaded skill's token and read no files.
+  - **Item 6, allow rules**: with only `Agent` allowed, a subagent's `keel-put` here-document was
+    denied (the control). With `Bash(keel-put:*)` also allowed, the same call ran. The rule matched
+    a body containing `;`, `&&` and `$(`. Quickstart allow rules therefore cover subagents, and
+    `keel-put` keeps its here-document form.
+  - **Item 6, skill `allowed-tools`**: these apply in a subagent only when it invokes the skill
+    with the Skill tool. Preloading the same skill with `skills:` granted nothing; the call was
+    denied.
+  - **Item 11**: Bash patterns in an agent's `tools` don't restrict it. `tools: Bash(echo:*)` still
+    ran `ls /`, so decision rule 5.1 would not have been available. Item 5 was already yes
+    (R7.2), so rule 5 isn't applied at all.
+  - **Decision for the implementer (T047)**:
+    - `tools: Read, Write, Edit, Grep, Glob, Bash`.
+    - `skills: [tdd, debug]` carries content only.
+    - Its commands are permitted by the quickstart allow list. T056 extends that list with what an
+      implementer runs: `keel-evidence`, `keel-verify` and the read-only git commands.
+    - Step skills keep `allowed-tools`, which apply because the run invokes them with the Skill
+      tool in the main session.
   - **Item 1** (user `!` commands): interactive-only, checked in T058/T080. It isn't required by
     FR-022, which covers the assistant's actions.
   - **Item 9** (minimum git for config hooks): the exact version is not determinable offline.

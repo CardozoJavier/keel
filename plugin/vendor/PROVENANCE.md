@@ -24,6 +24,8 @@ are listed in `CHANGELOG.md`.
 - `speckit/templates/checklist-template.md`: verbatim
 - `speckit/templates/constitution-template.md`: verbatim
 
+- `speckit/commands/`: verbatim; pristine sources of keel's step skills (constitution, specify, clarify, plan, tasks, analyze, implement), which adapt them
+
 Not vendored: `setup-plan.sh` (replaced by keel's step skills) and `create-new-feature.sh` (needs
 the network; replaced by `keel-branch`).
 

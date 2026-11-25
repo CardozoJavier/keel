@@ -133,9 +133,10 @@ Each step refuses to run before its prerequisites exist, or when the push shim i
 ```text
 tests/run.sh                  # fast suites: guard (shims + hook), scripts, classifier, parsers
 tests/run.sh --slow           # adds the Maven fixture (JDK + Maven; first run downloads PIT)
+tests/run.sh --scenarios      # skill/agent scenario checks: real claude -p sessions (model cost)
 tests/mutation-self-check.sh  # sed mutants of critical scripts must fail the suites
 claude plugin validate plugin/
-claude plugin eval plugin --eval-dir tests/eval --no-publish --allow-tools Bash
+tests/run.sh --eval           # claude plugin eval smoke case (plugin loading only, research R7.3)
 ```
 
 ## Verified environment facts
@@ -147,5 +148,7 @@ claude plugin eval plugin --eval-dir tests/eval --no-publish --allow-tools Bash
 | `CLAUDE_PLUGIN_ROOT` in the Bash env | absent (verified 2026-11-25); keel exports `KEEL_ROOT` |
 | Session env in subagents and skill-injected commands | yes, both (verified 2026-11-25, research R7.2) |
 | User `!` commands get the session env | _TBD (item 1, interactive trial T058)_ |
-| `skills:` preload in plugin agents | _TBD (item 2)_ |
-| Allow rules inside plugin subagents | _TBD (item 6)_ |
+| `skills:` preload in plugin agents | works: the agent knew the skill's content without reading files (verified 2026-11-25, research R7.4) |
+| Allow rules inside plugin subagents | yes; `Bash(keel-put:*)` also matches a here-document whose body has `;`, `&&` and `$(` (verified 2026-11-25, R7.4) |
+| Skill `allowed-tools` inside plugin subagents | only when the subagent invokes the skill with the Skill tool; a `skills:` preload grants nothing (R7.4). Subagent permissions come from the allow list above. |
+| Bash patterns in plugin agent `tools` | not a restriction: `tools: Bash(echo:*)` still ran `ls /` (R7.4) |
