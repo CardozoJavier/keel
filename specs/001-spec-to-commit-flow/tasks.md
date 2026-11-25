@@ -36,11 +36,11 @@ data-model.md, contracts/, quickstart.md)
 
 **Purpose**: plugin skeleton, test harness, shared library, vendored upstreams, provenance.
 
-- [ ] T001 Create the plugin skeleton (non-behavior; check: `claude plugin validate plugin/` passes):
+- [X] T001 Create the plugin skeleton (non-behavior; check: `claude plugin validate plugin/` passes):
   - `plugin/.claude-plugin/plugin.json`: name `keel`, version `0.1.0`, description, `defaultEnabled: false`.
   - `.claude-plugin/marketplace.json` at the repository root: marketplace `keel`, one plugin with source `./plugin`.
   - Empty dirs `plugin/{skills,agents,hooks,shims,bin,lib,templates,vendor}` with `.gitkeep`.
-- [ ] T002 Write the plain-bash test harness, bash 3.2 compatible.
+- [X] T002 Write the plain-bash test harness, bash 3.2 compatible.
   - Test first: `tests/harness_test.sh`.
   - `tests/run.sh`: discovers `tests/**/*_test.sh`; `--slow` adds `tests/slow/`; prints pass/fail counts; exits non-zero on any failure.
   - `tests/lib.sh` helpers:
@@ -49,7 +49,7 @@ data-model.md, contracts/, quickstart.md)
     - `mk_bare_remote`;
     - `in_subdir` (run from a module subdirectory);
     - `fixture_tracked_ignored` (a force-added file under an ignore rule).
-- [ ] T003 Write the shared library in `plugin/lib/common.sh`, with tests in `tests/scripts/common_test.sh`, run from the repo root and from a module subdir.
+- [X] T003 Write the shared library in `plugin/lib/common.sh`, with tests in `tests/scripts/common_test.sh`, run from the repo root and from a module subdir.
   - Root discovery: `$KEEL_ROOT`, else the script's own path through a `readlink` loop without `-f`.
   - `repo_root`, `scratch_dir <feature>` (`$(git rev-parse --git-dir)/keel/<feature>`), `die`/`emit KEY=value`.
   - Portable helpers: `tail -r` versus `tac`, no `timeout`/`date -d`/`stat -c`/`find -printf`/`xargs -r`, and a guarded empty-array expansion.

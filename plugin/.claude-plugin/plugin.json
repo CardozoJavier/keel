@@ -1,0 +1,17 @@
+{
+  "name": "keel",
+  "version": "0.1.0",
+  "description": "Spec-driven feature delivery: takes a feature description through Spec Kit's flow (constitution, specify, clarify, plan, tasks, analyze, implement) plus test-quality, review and verify, to local commits on a feature branch. Never pushes.",
+  "author": {
+    "name": "Javier Cardozo"
+  },
+  "license": "MIT",
+  "keywords": [
+    "spec-kit",
+    "tdd",
+    "mutation-testing",
+    "code-review",
+    "workflow"
+  ],
+  "defaultEnabled": false
+}
