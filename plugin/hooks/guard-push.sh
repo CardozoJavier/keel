@@ -202,9 +202,26 @@ git_fast_allow() {
   [ -n "$sub" ] || return 1
   case " ${KEEL_GIT_BUILTINS:-} " in *" $sub "*) ;; *) return 1 ;; esac
   case "$sub" in
-    push | send-pack | http-push | send-email | imap-send | svn | p4 | subtree | receive-pack | remote-* | config | remote | submodule | rebase | bisect) return 1 ;;
+    push | send-pack | http-push | send-email | imap-send | svn | p4 | subtree | receive-pack | remote-* | config | remote) return 1 ;;
   esac
-  return 0
+  return 0   # rebase -x, submodule foreach and bisect run payloads are analyzed by git_payloads
+}
+
+# gh_fast_allow <args...>: true for gh commands that cannot publish (reads, issues, runs, auth...).
+# pr/repo/release/agent-task/api, aliases, extensions and anything unknown go through shim_check.
+gh_fast_allow() {
+  local cmd=${1:-} sub= a
+  case "$cmd" in
+    auth | browse | codespace | gist | issue | org | project | skill | cache | run | workflow | alias | attestation | \
+      completion | config | extension | gpg-key | label | licenses | preview | ruleset | search | secret | ssh-key | \
+      status | variable | help | version | --version | --help) return 0 ;;
+    pr)
+      shift
+      for a in "$@"; do case "$a" in -*) ;; *) sub=$a; break ;; esac; done
+      case "$sub" in view | list | status | checks | diff | comment | edit | checkout | review | close | lock | unlock) return 0 ;; esac
+      return 1 ;;
+  esac
+  return 1
 }
 
 # git_payloads <depth> <args...>: literal commands git runs for us (rule B4).
@@ -292,7 +309,7 @@ command_rules() {
 
   # an unresolved command word (rule B5)
   if [ "${u[0]:-0}" = 1 ]; then
-    for w in "${@:2}"; do v1 "$(decode "$w")" && deny B5 "unresolved command word with publish vocabulary: $*"; done
+    for w in "${@:2}"; do v1 "${w//$NLE/$'\n'}" && deny B5 "unresolved command word with publish vocabulary: $*"; done
     return 0
   fi
 
@@ -430,8 +447,9 @@ command_rules() {
     *" $base "*)
       label=B3; [ "$bypass" -eq 1 ] && label=B1; [ -n "$over" ] && label=$over
       local args=()
-      for w in "$@"; do args+=("$(decode "$w")"); done
+      for w in "$@"; do args+=("${w//$NLE/$'\n'}"); done
       if [ "$base" = "git" ] && git_fast_allow ${args[@]+"${args[@]}"}; then :
+      elif [ "$base" = "gh" ] && gh_fast_allow ${args[@]+"${args[@]}"}; then :
       else shim_check "$label" "$base" ${args[@]+"${args[@]}"}
       fi
       [ "$base" = "git" ] && git_payloads "$depth" ${args[@]+"${args[@]}"}

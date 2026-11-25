@@ -163,7 +163,7 @@ case passes.
   - It registers `SessionStart` → `session-env.sh`, and PreToolUse matchers `^(Bash|Monitor|PowerShell)$`, `^mcp__.*github.*__.*$`, `^mcp__codex__codex$` and `^mcp__codex__codex-reply$` → `guard-push.sh` in the right mode.
   - Every entry has `onFailure: "block"` and a 10 s timeout.
   - The test asserts the structure, the anchored matchers and that every referenced script is executable.
-- [ ] T020 Add guard performance checks in `tests/guard/perf_test.sh`, measured with `TIMEFORMAT=%3R`: layer B p95 under 50 ms on the allow corpus, and shim overhead under 15 ms per git/gh call (test first).
+- [X] T020 Add guard performance checks in `tests/guard/perf_test.sh`, measured with `TIMEFORMAT=%3R`: layer B p95 under 50 ms on the allow corpus, and shim overhead under 15 ms per git/gh call (test first).
 - [ ] T021 Run the empirical guard verification, items 1, 3, 5, 7, 8 and 9 (non-behavior).
   - Use `claude -p --plugin-dir plugin` probe sessions with a local bare remote in the scratchpad.
   - Check that:
