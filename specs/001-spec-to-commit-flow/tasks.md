@@ -560,25 +560,33 @@ errors (SC-008).
     - `plugin/bin/keel-classify`, `plugin/bin/keel-state` and `plugin/bin/keel-evidence`.
   - It asserts that each mutant fails its suite.
   - Survivors are listed, then triaged in `specs/001-spec-to-commit-flow/test-quality.md`, the feature's own test-quality summary under Principle V.
-- [ ] T076 [P] Add the eval scenarios `plugin/evals/unsupported-not-run/` and `plugin/evals/full-path-trial/`, and run the full suite with `tests/run.sh --eval`. Results go in `tests/trials/RESULTS.md`.
+- [X] T076 [P] Cover "unsupported → not-run" and the full-path trial, and run the full suite with `tests/run.sh --eval` (33 suites green, 2026-11-25). Per research R7.3 these are not `plugin/evals/` cases:
+  - unsupported → not-run: the `us3_mutate_not_run` scenario, plus `keel-mutate_test` (no JUnit Platform, host PIT config, no Maven project → exit 10).
+  - full-path trial: `tests/trials/full_path_trial.sh` (T080). Results go in `tests/trials/RESULTS.md`.
 - [X] T077 [P] Write `README.md` at the repository root: what keel is, install, enable per repository, flow, gates, guard layers and escape hatch, standalone skills, and how to develop keel. Update `specs/001-spec-to-commit-flow/quickstart.md` with the final verified-facts table.
 - [X] T078 Write keel's own `CLAUDE.md` guidance. Keep the SPECKIT marker block and add:
   - bash 3.2 and BSD rules;
   - test commands;
   - the vendoring change-log rule;
   - never push.
-- [ ] T079 Check provenance and validation end to end (non-behavior).
+- [X] T079 Check provenance and validation end to end (non-behavior). `provenance_test` now also checks that every skill and agent declares its origin, and that every adapted one is listed in the changelog (153 passes). `claude plugin validate plugin/` passes, with only the icon warning left for directory submission.
   - `claude plugin validate plugin/` and `tests/scripts/provenance_test.sh` pass.
   - Every adapted skill and agent has its header.
   - `plugin/vendor/CHANGELOG.md` lists every in-place edit.
-- [ ] T080 Run the full-path trial in a fresh sample repo, end to end (description to finish), with `claude -p --plugin-dir plugin` and `history_file` chaining for the two gates (non-behavior). Disable superpowers and feature-dev through `--settings` `enabledPlugins`, as in T058, and check that no Spec Kit CLI or `speckit-*` skill is reachable (SC-007). Also run Spec Kit's analyze on the result, from a separate checkout that has the Spec Kit install, to confirm SC-006.
+- [X] T080 Run the full-path trial in a fresh sample repo, end to end (description to finish), with `claude -p --plugin-dir plugin` and `history_file` chaining for the two gates (non-behavior). Disable superpowers and feature-dev through `--settings` `enabledPlugins`, as in T058, and check that no Spec Kit CLI or `speckit-*` skill is reachable (SC-007). Also run Spec Kit's analyze on the result, from a separate checkout that has the Spec Kit install, to confirm SC-006.
   - Check SC-001 to SC-008 and SC-010 to SC-014 against the run.
   - Count permission prompts (SC-001).
   - Record the results in `tests/trials/RESULTS.md`.
+  - Done 2026-11-25. Feature `001-price-discount` reached `STEP=done` in 6 min, with 2 gates and 0 permission denials. Spec Kit used 0 times, 0 reachable. Mutation 13/13. Finish verify `RESULT=pass`. Build files unchanged.
+    - SC-001 to SC-008 and SC-010 to SC-014 are met; RESULTS.md has a table of the evidence for each. SC-005, SC-008, SC-010, SC-011 and SC-013 rely on their suites, scenarios and trials, not on this run.
+    - SC-009 is pending the maintainer's judgment after three real features.
+    - Interactive-only items stay open: user `!` commands and the session env, and the env after `/clear`, compaction and fork.
 - [X] T081 Write `specs/001-spec-to-commit-flow/test-quality.md` for keel itself (Principle V).
   - Include the mutation self-check results, with triaged survivors and their reasons.
   - State that PIT doesn't apply to bash, and that the sed mutants are its equivalent.
-- [ ] T082 Run the full suite (`tests/run.sh` and `tests/run.sh --slow`) and show the output before the final commit (Principle V). Commit on `001-spec-to-commit-flow` (never push).
+- [X] T082 Run the full suite (`tests/run.sh` and `tests/run.sh --slow`) and show the output before the final commit (Principle V). Commit on `001-spec-to-commit-flow` (never push).
+  - 2026-11-25: `tests/run.sh --slow` gave 34 suites and 0 failed, which includes every fast suite and `slow/mutation_test`. Layer B p95 was 40 ms against the 50 ms limit.
+  - Earlier runs that day measured 67–88 ms and failed `guard/perf_test`. The committed cb60e16 code failed the same way, so it was the machine, not the code. Load, power mode, the sandbox and the git binary were ruled out; the cause is unknown.
 
 ---
 

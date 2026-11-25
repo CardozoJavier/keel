@@ -45,7 +45,8 @@ detect() {
     done
     testcmd=none
   fi
-  if [ "$build" = maven ]; then
+  # a Maven project keeps its framework detection when the host defines the command
+  if [ -f pom.xml ] || [ -f mvnw ]; then
     poms=$(find . -name pom.xml -not -path '*/target/*' -not -path './.git/*' 2>/dev/null)
     if [ -n "$poms" ] && grep -lqE 'junit-jupiter|junit-platform|org\.junit\.jupiter|spring-boot-starter-test|quarkus-junit5' $poms 2>/dev/null; then fw=junit5
     elif [ -n "$(git grep -l 'org.junit.jupiter' -- '*.java' 2>/dev/null | head -1)" ]; then fw=junit5

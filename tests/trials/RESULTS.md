@@ -103,3 +103,105 @@ confirmed RED against a plugin copy without the skill, then GREEN:
 | `/keel:verify` | `us6_verify_standalone` | guard first, `mvn` named, "2 run" evidence, no state, nothing committed (7/7) |
 | `/keel:respond-review` | `us6_respond_review_standalone`: one wrong and one right comment | the wrong comment declined ("already" uses `addExact`); an overflow test added; suite green (7/7) |
 | `/keel:test-audit` | `us6_test_audit_standalone` on maven-weak | report under `.git/keel/audit/`, all three seeded weaknesses named, tree unchanged (8/8) |
+
+## Full-path trial (T080), 2026-11-25
+
+- **Repo**: sample-maven; feature `001-price-discount`; model `sonnet`; wall time 6 min; resumes needed: 0.
+- **keel-state next**: `STEP=done`.
+- **Gates**: session 1 ended with: …yes**  Choose one: - **Approve** (full path: competing designs at Gate 2, plan review). - **Approve with the light path** (one gate, no competing designs or plan review). - **Tell me what to change.**
+  session 2 ended with: …btle split formula. B adds a public type for one caller, and nothing in the spec needs it. Stacking discounts and fractional percentages are out of scope.  Pick A, B or C, or describe your own design.
+- **Agents**: explorers 3, architects 3, plan reviewers 1, implementers 3, task reviewers 3, code reviewers 3.
+  (distinct top-level Agent dispatches across all sessions)
+- **Commits** (`f64696e..HEAD`):
+
+```text
+2318004 feat(001-price-discount): implement percentage discount for Price
+9ab5916 test(001-price-discount): test-quality report
+32f2a80 feat(price): T003 reject percentages outside 0..100
+3052d8e feat(price): T002 make Price.discounted overflow-safe
+2b6e20b feat(price): T001 add Price.discounted with half-up rounding
+53be5c6 docs(001-price-discount): spec, plan and tasks
+```
+
+- **Evidence per behavior task**:
+  - `T001` (behavior): evidence check pass; verify log present
+  - `T002` (behavior): evidence check pass; verify log present
+  - `T003` (behavior): evidence check pass; verify log present
+- **Test quality**: **Result**: resolved; **Summary**: 16 mutants (13 in scope); killed 13; coverage gaps 0; assertion gaps 0; triaged 0; excluded 0
+- **Spec status**: **Status**: Implemented (2026-11-25)
+- **Finish verify** (keel-verify stdout): RESULT=pass FAILING=0 NEW=0 TESTS=present (log present)
+- **Build files unchanged**: yes
+- **Co-author trailers**: none; **tree**: clean; **remote refs**: none (no remote configured; the guard blocks pushes regardless).
+- **Permission denials in the sessions (SC-001)**: 0; **Spec Kit CLI or speckit-* skill used (SC-007)**: 0; **speckit skills or commands reachable**: 0.
+- **SC-006, Spec Kit reads the artifacts**: check-prerequisites: `{"FEATURE_DIR":"/var/folders/v3/z6rlh_z57yj7sbfj6trt8lh80000gn/T/keeltest.c41pU2/speckit-copy/specs/001-price-discount","AVAILABLE_DOCS":["research.md","data-model.md","quickstart.md","tasks.md"]}`
+  `/speckit-analyze`: No critical issues. I only read the artifacts and changed nothing. `.specify/extensions.yml` doesn't exist, so no hooks ran.;- Total requirements: 9 (6 FR, plus SC-001 to SC-003, which need buildable work);- Critical issues: 0;
+- **Final message**:
+
+```text
+`Price.discounted(int percent)` is implemented and committed on branch `001-price-discount`. The final `mvn -q verify` passes with 0 failing tests. I didn't push.
+
+**What it does**
+- It returns the discounted price, rounded half up to the cent, with no overflow even at `Long.MAX_VALUE`.
+- A percentage below 0 or above 100 throws `IllegalArgumentException`. It is never clamped.
+
+**Commits** (`f64696e..HEAD`)
+- `53be5c6` docs: spec, plan and tasks
+- `2b6e20b` T001: discount with half-up rounding
+- `3052d8e` T002: overflow-safe arithmetic
+- `32f2a80` T003: reject percentages outside 0..100
+- `9ab5916` test-quality report
+- `2318004` finish (spec marked Implemented)
+
+**Run summary**
+- **Path:** full. I passed Gate 1 (spec approval) and Gate 2 (you picked the pragmatic balance design).
+- **Plan review:** one round, GO.
+- **Test quality:** 13 of 13 in-scope mutants killed, with no gaps. The report lists some redundant and overlapping tests, and I left them in place.
+- **Code review:** the simplicity, correctness and conventions reviewers each returned no findings.
+- **Re-mutation at finish:** skipped, because no production code changed after the test-quality commit.
+
+**Not pushed.** You can run `git push` yourself when ready. No instruction asked me to publish.
+
+**Caveats**
+- I saved the plan-review and task-review outputs as shortened or summarized text. They are not the reviewers' verbatim output, which the skill steps call for.
+- I also staged `.specify/feature.json` in the docs commit, which the skill didn't list.
+```
+
+An earlier run the same day (feature `001-percent-discount`, 7 min, same outcome) was discarded,
+because its script had three counting bugs, fixed before this run:
+- **SC-007 showed 1, a false positive.** The raw grep matched keel's own
+  `keel-state require specify --feature …`. It is now `scn_speckit_used`, which reads Skill and
+  Bash tool calls only and matches `specify` only as a command.
+- **The finish line had no RESULT.** keel-verify prints RESULT on stdout, not in the log. It is now
+  read from the Bash call's output with `scn_bash_output`.
+- **Agent counts were raw stream occurrences.** They are now `scn_dispatches`, summed across
+  sessions.
+
+The detect fix showed in this run. `keel-verify detect --host "mvn -q verify"` printed
+`TESTFW=junit5`, so no test-setup task was added. The previous run had printed `TESTFW=none` for
+the same POM.
+
+Follow-ups from this run's final message:
+- The plan-review and task-review outputs were saved summarized, not verbatim.
+- `.specify/feature.json` was staged in the docs commit.
+
+### Success criteria (T080)
+
+| SC | Outcome | Evidence |
+|---|---|---|
+| SC-001 | met | Two approvals: Gate 1 ended session 1, Gate 2 ended session 2. Clarification answers came in the prompt. 0 permission denials in every result event. |
+| SC-002 | met | No publish attempted and no remote. The publish-attempt corpus is blocked 100% by `tests/guard/` and the `us2_publish_blocked` scenario. |
+| SC-003 | met | The last `keel-verify run` before each task commit printed `RESULT=pass` for T001, T002 and T003. Finish verify printed `RESULT=pass FAILING=0 NEW=0`. |
+| SC-004 | met | T001–T003 are behavior tasks. Each evidence check passes (red before, green after). |
+| SC-005 | met by the suites | This run needed no resume. Covered by `resume_matrix_test` and the `us4_resume_mid_implementation` scenario. |
+| SC-006 | met | Spec Kit's `check-prerequisites` found the feature dir and docs. `/speckit-analyze` reported 0 critical issues, without edits. |
+| SC-007 | met | superpowers and feature-dev were disabled. Spec Kit CLI or `speckit-*` skills used: 0. Reachable: 0. |
+| SC-008 | met by the scenarios | Memory was off in this run. Covered by `us5_memory_absent` and `us5_memory_keyed`. |
+| SC-009 | **pending** | Needs the maintainer's judgment after three real features. |
+| SC-010 | met | Light-path trial T058 had 1 approval. Also `us1_light_one_gate` and `us1_no_light_for_contract`. |
+| SC-011 | met | Standalone trials (T074), plus the four `us6_*_standalone` scenarios. |
+| SC-012 | met | Test quality resolved: 13 of 13 in-scope mutants killed, 0 coverage or assertion gaps. |
+| SC-013 | met | `us6_test_audit_standalone` on maven-weak named all three seeded weaknesses. |
+| SC-014 | met | Build files unchanged (`pom.xml`, `mvnw`, `.mvn`). |
+
+Still open, interactive only: whether user `!` commands get the session env, and the env after
+`/clear`, compaction and fork (quickstart verified-facts table).

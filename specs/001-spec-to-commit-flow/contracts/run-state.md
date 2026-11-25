@@ -261,7 +261,8 @@ keel-verify record <feature> --setup <T###|none>
     - `undetected`: anything else without a known or host-defined command.
     - `TESTFW=none` in a Maven project (no test-scoped JUnit/TestNG dependency in the effective
       POM) means the `tasks` step must add a setup task that names `pom.xml`, the same as having
-      no test command.
+      no test command. The POMs are read whenever the project has a `pom.xml` or `mvnw`, including
+      with `--host`: a host-defined command doesn't hide the project's test framework.
   - **Command comparison**: keel's own flags (`-fae -Dmaven.test.failure.ignore=true`) are stripped
     from both commands before comparing. `baseline.cmd` is stored without them.
   - **Changed-test exclusion**: "tests whose source file the feature changed or deleted" is

@@ -189,3 +189,83 @@ for line in open(sys.argv[1], errors="replace"):
 print("no")
 ' "$1" "$2"
 }
+
+# scn_speckit_used <session.jsonl...>: Spec Kit invocations (SC-007), by any agent in the sessions:
+# Skill calls of a speckit-* skill, and Bash calls that run the `specify` CLI as a command (also
+# through uvx, pipx or uv tool run). A keel step named "specify", tool output and prose don't count.
+scn_speckit_used() {
+  python3 -I -c '
+import json, re, sys
+skill = re.compile(r"(^|:)speckit-")
+cli = re.compile(r"(^|[;&|(\n]|\$\()\s*([A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(\S*/)?specify(\s|$)"
+         r"|\b(uvx|pipx\s+run|uv\s+tool\s+run)\b[^;&|\n]*\sspecify(\s|$)")
+n = 0
+for fn in sys.argv[1:]:
+    for line in open(fn, errors="replace"):
+        try:
+            o = json.loads(line)
+        except ValueError:
+            continue
+        m = o.get("message")
+        content = m.get("content") if isinstance(m, dict) else None
+        for b in content if isinstance(content, list) else []:
+            if not isinstance(b, dict) or b.get("type") != "tool_use":
+                continue
+            i = b.get("input") or {}
+            if b.get("name") == "Skill" and skill.search(str(i.get("skill", ""))):
+                n += 1
+            elif b.get("name") == "Bash" and cli.search(str(i.get("command", ""))):
+                n += 1
+print(n)
+' "$@"
+}
+
+# scn_speckit_reachable <session.jsonl...>: distinct speckit skills or slash commands the sessions'
+# init messages offered (SC-007: none should be reachable).
+scn_speckit_reachable() {
+  python3 -I -c '
+import json, sys
+names = set()
+for fn in sys.argv[1:]:
+    for line in open(fn, errors="replace"):
+        try:
+            o = json.loads(line)
+        except ValueError:
+            continue
+        if o.get("type") == "system" and o.get("subtype") == "init":
+            for k in ("skills", "slash_commands", "agents"):
+                for x in o.get(k) or []:
+                    if isinstance(x, str) and "speckit" in x:
+                        names.add(x)
+print(len(names))
+' "$@"
+}
+
+# scn_bash_output <regex> <session.jsonl...>: the output of the last Bash call (across the sessions,
+# in order) whose command matches <regex>; empty when none does.
+scn_bash_output() {
+  python3 -I -c '
+import json, re, sys
+pat = re.compile(sys.argv[1])
+ids, last = set(), ""
+for fn in sys.argv[2:]:
+    for line in open(fn, errors="replace"):
+        try:
+            o = json.loads(line)
+        except ValueError:
+            continue
+        m = o.get("message")
+        content = m.get("content") if isinstance(m, dict) else None
+        for b in content if isinstance(content, list) else []:
+            if not isinstance(b, dict):
+                continue
+            if b.get("type") == "tool_use" and b.get("name") == "Bash" and pat.search(str((b.get("input") or {}).get("command", ""))):
+                ids.add(b.get("id"))
+            elif b.get("type") == "tool_result" and b.get("tool_use_id") in ids:
+                r = b.get("content")
+                if isinstance(r, list):
+                    r = "".join(x.get("text", "") for x in r if isinstance(x, dict))
+                last = str(r)
+print(last)
+' "$@"
+}

@@ -154,8 +154,12 @@ tests/run.sh --eval           # claude plugin eval smoke case (plugin loading on
 | SessionStart `CLAUDE_ENV_FILE` PATH prepend | works; the shim intercepted zsh `gp` and `eval` (verified 2026-11-25) |
 | `CLAUDE_PLUGIN_ROOT` in the Bash env | absent (verified 2026-11-25); keel exports `KEEL_ROOT` |
 | Session env in subagents and skill-injected commands | yes, both (verified 2026-11-25, research R7.2) |
-| User `!` commands get the session env | _TBD (item 1, interactive trial T058)_ |
+| User `!` commands get the session env | **open**: interactive only, so it can't be observed through `claude -p` (T058 and T080 ran non-interactively). Layer B never sees `!` commands. Until it's verified, treat a developer's own `!` push as unguarded; that is the developer acting, not the agent. |
+| Env after `/clear`, compaction and fork | **open**: interactive only (verification item 8). Resume (`--continue`) keeps it (R7.2). |
 | `skills:` preload in plugin agents | works: the agent knew the skill's content without reading files (verified 2026-11-25, research R7.4) |
 | Allow rules inside plugin subagents | yes; `Bash(keel-put:*)` also matches a here-document whose body has `;`, `&&` and `$(` (verified 2026-11-25, R7.4) |
 | Skill `allowed-tools` inside plugin subagents | only when the subagent invokes the skill with the Skill tool; a `skills:` preload grants nothing (R7.4). Subagent permissions come from the allow list above. |
 | Bash patterns in plugin agent `tools` | not a restriction: `tools: Bash(echo:*)` still ran `ls /` (R7.4) |
+| `claude plugin eval` can execute plugin files | **no**: its sandbox refuses (`operation not permitted`). Skill checks are `tests/scenarios/` sessions (R7.3) |
+| IDE language servers and `target/` | jdtls without the Maven classpath leaves stub classes in `target/` and surefire runs 0 tests; `keel-verify` fails closed with `MISSING=test-reports` (R7.5) |
+| `-pl <module> -am` with PIT `mutationCoverage` | works with `-DfailWhenNoMutations=false`; `-f <module>/pom.xml` fails when sibling SNAPSHOTs aren't installed; keel probes the reactor and falls back to `-f` (R7.6) |

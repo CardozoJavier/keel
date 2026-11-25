@@ -68,4 +68,14 @@ for f in $(find "$KEEL_PLUGIN_ROOT/skills" "$KEEL_PLUGIN_ROOT/agents" -name '*.m
   fi
 done
 
+# 6. every skill and agent declares its origin; every adapted one is listed in the vendor change log
+CL=$(cat "$V/CHANGELOG.md")
+for f in "$KEEL_PLUGIN_ROOT"/skills/*/SKILL.md "$KEEL_PLUGIN_ROOT"/agents/*.md; do
+  case "$f" in */skills/*) n=$(basename "$(dirname "$f")") ;; *) n=$(basename "$f" .md) ;; esac
+  if grep -q 'Adapted from' "$f"; then
+    assert_eq yes "$(printf '%s\n' "$CL" | sed -n '/^## Derived files/,$p' | grep -qE "(skills|agents)/([^|]*[ ,/])?$n([ ,.|]|\$)" && echo yes)" "$n is listed in vendor/CHANGELOG.md's derived files"
+  else
+    assert_contains "$(cat "$f")" "keel-authored" "$n declares it is keel-authored"
+  fi
+done
 t_summary
