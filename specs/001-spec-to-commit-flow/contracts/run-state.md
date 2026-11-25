@@ -114,6 +114,9 @@ keel-ledger last   <feature> <step>          → the last row, or exit 3
 keel-put <feature> <relpath>                 → reads stdin, writes <scratch>/<relpath> (creates dirs), prints PATH=<abs>
 ```
 
+- **File rows**: `keel-ledger append <f> files done - <path>` records a file keel wrote for the
+  feature, such as the constitution or `specs/<f>/`. `keel-branch`'s ensure-scope exemption reads
+  these rows.
 - **Ledger unit rows**: `keel-ledger append <f> <step> started <BASE> <unit> <intent> <path,…>`.
   - The unit starts on a clean tree, so BASE = HEAD.
   - `intent` is `n/a`, `fix` or `refactor`, following the precedence in data-model.md §7.

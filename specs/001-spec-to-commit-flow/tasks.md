@@ -178,14 +178,14 @@ case passes.
 
 ### Run-state scripts (M2, contracts/run-state.md, data-model.md)
 
-- [ ] T022 [P] Write `plugin/bin/keel-ledger`: append-only TSV with unit rows (`started <BASE> <unit> <intent> <paths>`; `ok`/`halted`/`abandoned`), step `done` rows, and `last`. Tests in `tests/scripts/keel-ledger_test.sh` (test first).
-- [ ] T023 [P] Write `plugin/bin/keel-put`: reads stdin, writes `<scratch>/<relpath>`, rejects `..` and absolute paths. Tests in `tests/scripts/keel-put_test.sh`, including here-document bodies with `;`, `&&` and `$(` (test first).
-- [ ] T024 Write `plugin/bin/keel-branch` (`ensure`, `next-number`), with tests in `tests/scripts/keel-branch_test.sh` (test first).
+- [X] T022 [P] Write `plugin/bin/keel-ledger`: append-only TSV with unit rows (`started <BASE> <unit> <intent> <paths>`; `ok`/`halted`/`abandoned`), step `done` rows, and `last`. Tests in `tests/scripts/keel-ledger_test.sh` (test first).
+- [X] T023 [P] Write `plugin/bin/keel-put`: reads stdin, writes `<scratch>/<relpath>`, rejects `..` and absolute paths. Tests in `tests/scripts/keel-put_test.sh`, including here-document bodies with `;`, `&&` and `$(` (test first).
+- [X] T024 Write `plugin/bin/keel-branch` (`ensure`, `next-number`), with tests in `tests/scripts/keel-branch_test.sh` (test first).
   - Ensure-scope exemptions: the ledger and the branch-name rule.
   - Halts on a dirty tree and on untracked files.
   - Handles an unborn HEAD (`symbolic-ref`), stacking from another feature branch, and default-branch detection without network.
   - The no-network test uses an unroutable remote URL.
-- [ ] T025 Write `plugin/bin/keel-diff` (`--unit` while open and after its commit, `--base` two-dot, `--kind` with `src/main/resources` counted as production), using the seeded temp index from `plugin/lib/common.sh`. Tests in `tests/scripts/keel-diff_test.sh`: `feature.json` never appears, a tracked-but-ignored file isn't shown as deleted, and runs from a module subdir work (test first).
+- [X] T025 Write `plugin/bin/keel-diff` (`--unit` while open and after its commit, `--base` two-dot, `--kind` with `src/main/resources` counted as production), using the seeded temp index from `plugin/lib/common.sh`. Tests in `tests/scripts/keel-diff_test.sh`: `feature.json` never appears, a tracked-but-ignored file isn't shown as deleted, and runs from a module subdir work (test first).
 - [ ] T026 Write `plugin/bin/keel-evidence` (`run`/`check <unit>`), with tests in `tests/scripts/keel-evidence_test.sh` (test first).
   - `run` tees the log and records the working-tree id in `index.tsv`.
   - `check` implements the per-unit rule from data-model.md §7, reading `intent` from the ledger row:

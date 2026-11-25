@@ -1,0 +1,17 @@
+#!/bin/bash
+# keel-put <feature> <relpath>: store stdin at .git/keel/<feature>/<relpath> and print PATH=<abs>.
+# The orchestrator stores agent output this way (agents never write under .git, which always
+# prompts). Content arrives in a here-document, so no redirect into .git appears in the command.
+set -u
+_s=$0; while [ -h "$_s" ]; do _d=$(cd -P "$(dirname "$_s")" && pwd); _s=$(readlink "$_s"); case $_s in /*) ;; *) _s=$_d/$_s ;; esac; done
+. "${KEEL_ROOT:-$(cd -P "$(dirname "$_s")/.." && pwd)}/lib/bin-preamble.sh" || exit 5
+
+feature=${1:-}; rel=${2:-}
+[ -n "$feature" ] && [ -n "$rel" ] || keel_die 1 "usage: keel-put <feature> <relpath> < content"
+keel_feature_ok "$feature" || keel_die 1 "invalid feature name: $feature"
+case "$rel" in /* | ../* | */../* | */.. | ..) keel_die 1 "relpath must stay inside the scratch directory: $rel" ;; esac
+case "$rel" in *[!A-Za-z0-9._/-]*) keel_die 1 "relpath has unsupported characters: $rel" ;; esac
+dest="$(keel_scratch "$feature")/$rel"
+mkdir -p "$(dirname "$dest")"
+cat > "$dest" || keel_die 5 "cannot write $dest"
+keel_emit PATH "$dest"
