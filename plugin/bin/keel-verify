@@ -1,0 +1,203 @@
+#!/bin/bash
+# keel-verify (contracts/run-state.md): the build-and-test gate before every keel commit.
+#   keel-verify detect [--host "<build-and-test command>"]
+#       → BUILD=maven|host|none|undetected  TESTCMD=<cmd|none>  TESTFW=junit5|junit4|testng|none
+#   keel-verify run <feature> --label <L> [--kind behavior|non-behavior] -- <command...|none>
+#       → RESULT=pass|fail FAILING=<n> NEW=<n> TESTS=present|none BUILD=… LOG=<path>
+#       exit 0 pass, 1 fail, 3 MISSING=test-command (behavior unit with no test reports)
+# Labels: baseline | T### | MUT-n | REV-n | FIN-n | test-quality | finish.
+# Baseline: always run Maven with -fae -Dmaven.test.failure.ignore=true; pass iff it compiled;
+# records failing, ran and cmd (without keel's flags). Later labels: keel's flags only when the
+# baseline was red; pass iff compiled and NEW=0, where NEW = failures not in the baseline, plus
+# (same command as the baseline) baseline tests without a fresh report whose test file the feature
+# didn't change. Only reports newer than this run's start marker count. The command runs with the
+# push guard environment (A0 + shims).
+set -u
+_s=$0; while [ -h "$_s" ]; do _d=$(cd -P "$(dirname "$_s")" && pwd); _s=$(readlink "$_s"); case $_s in /*) ;; *) _s=$_d/$_s ;; esac; done
+. "${KEEL_ROOT:-$(cd -P "$(dirname "$_s")/.." && pwd)}/lib/bin-preamble.sh" || exit 5
+. "$(keel_root)/lib/units.sh" || exit 5
+KEEL_FLAGS='-fae -Dmaven.test.failure.ignore=true'
+
+root=$(keel_repo_root); cd "$root" || exit 5
+
+# ------------------------------------------------------------------------------------------------
+detect() {
+  local host= build testcmd fw=none f
+  [ "${1:-}" = "--host" ] && host=${2:-}
+  if [ -n "$host" ]; then build=host; testcmd=$host
+  elif [ -f pom.xml ] || [ -f mvnw ]; then
+    build=maven
+    if [ -x mvnw ]; then testcmd="./mvnw verify"; else testcmd="mvn verify"; fi
+  else
+    build=none
+    for f in $(git ls-files --cached --others --exclude-standard 2>/dev/null); do
+      case "${f##*/}" in
+        build.gradle | build.gradle.kts | settings.gradle | settings.gradle.kts | package.json | Makefile | go.mod | Cargo.toml | pyproject.toml | setup.py)
+          build=undetected; break ;;
+      esac
+      case "$f" in
+        *.java | *.kt | *.kts | *.scala | *.groovy | *.js | *.mjs | *.ts | *.tsx | *.py | *.go | *.rs | *.rb | *.cs | *.c | *.cc | *.cpp | *.h | *.hpp | *.swift | *.php)
+          build=undetected; break ;;
+      esac
+    done
+    testcmd=none
+  fi
+  if [ "$build" = maven ]; then
+    poms=$(find . -name pom.xml -not -path '*/target/*' -not -path './.git/*' 2>/dev/null)
+    if [ -n "$poms" ] && grep -lqE 'junit-jupiter|junit-platform|org\.junit\.jupiter|spring-boot-starter-test|quarkus-junit5' $poms 2>/dev/null; then fw=junit5
+    elif [ -n "$(git grep -l 'org.junit.jupiter' -- '*.java' 2>/dev/null | head -1)" ]; then fw=junit5
+    elif [ -n "$poms" ] && grep -lq 'testng' $poms 2>/dev/null; then fw=testng
+    elif [ -n "$poms" ] && grep -lqE '<artifactId>junit</artifactId>' $poms 2>/dev/null; then fw=junit4
+    fi
+  fi
+  keel_emit BUILD "$build"
+  keel_emit TESTCMD "$testcmd"
+  keel_emit TESTFW "$fw"
+}
+
+case "${1:-}" in
+  detect) shift; detect "$@"; exit 0 ;;
+  run) ;;
+  *) keel_die 1 "usage: keel-verify detect [--host <cmd>] | run <feature> --label <L> [--kind behavior|non-behavior] -- <cmd...|none>" ;;
+esac
+
+feature=${2:-}; shift 2 2>/dev/null || true
+keel_feature_ok "$feature" || keel_die 1 "invalid feature name: $feature"
+label= kind=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --label) label=${2:-}; shift 2 ;;
+    --kind) kind=${2:-}; shift 2 ;;
+    --) shift; break ;;
+    *) keel_die 1 "unexpected argument: $1" ;;
+  esac
+done
+case "$label" in
+  baseline | test-quality | finish | T[0-9][0-9][0-9] | MUT-[0-9]* | REV-[0-9]* | FIN-[0-9]*) ;;
+  *) keel_die 1 "invalid label: $label" ;;
+esac
+[ $# -gt 0 ] || keel_die 1 "no build-and-test command"
+scratch=$(keel_scratch "$feature")
+vdir="$scratch/verify"; mkdir -p "$vdir"
+log="$vdir/$label.log"
+
+if [ "$1" = "none" ] && [ $# -eq 1 ]; then
+  printf 'keel-verify: nothing to build or test (no build files and no sources yet)\n' | tee "$log"
+  if [ "$label" = baseline ]; then : > "$vdir/baseline.failing"; : > "$vdir/baseline.ran"; echo none > "$vdir/baseline.cmd"; fi
+  keel_emit RESULT pass; keel_emit FAILING 0; keel_emit NEW 0; keel_emit TESTS none; keel_emit BUILD none; keel_emit LOG "$log"
+  exit 0
+fi
+
+strip_flags() { printf '%s' "$*" | sed -e 's/ -fae//g' -e 's/ -Dmaven\.test\.failure\.ignore=true//g' -e 's/^ *//' -e 's/ *$//'; }
+is_maven=0
+case "${1##*/}" in mvn | mvnw) is_maven=1 ;; esac
+cmd_plain=$(strip_flags "$*")
+
+# baseline knowledge: scratch files, or tasks.md's keel:baseline comment after losing .git/keel
+b_failing="$vdir/baseline.failing" b_ran_known=1
+if [ "$label" != baseline ] && [ ! -f "$b_failing" ]; then
+  b_ran_known=0
+  tasks="specs/$feature/tasks.md"
+  if [ -f "$tasks" ]; then
+    awk '/<!-- keel:baseline/{f=1;next} f && /-->/{f=0} f && /^failing: /{ sub(/^failing: /,""); gsub(/%2D/,"-"); gsub(/%25/,"%"); print }' "$tasks" > "$vdir/baseline.failing.restored"
+    awk '/<!-- keel:baseline/{f=1;next} f && /-->/{f=0} f && /^cmd: /{ sub(/^cmd: /,""); gsub(/%2D/,"-"); gsub(/%25/,"%"); print }' "$tasks" > "$vdir/baseline.cmd.restored"
+    b_failing="$vdir/baseline.failing.restored"
+  fi
+fi
+add_flags=0
+if [ "$is_maven" -eq 1 ]; then
+  if [ "$label" = baseline ] || [ -s "$b_failing" ]; then add_flags=1; fi
+fi
+
+# run with the push guard environment
+export KEEL_ROOT
+KEEL_ROOT=$(keel_root)
+. "$KEEL_ROOT/hooks/keel-env.sh"
+marker="$vdir/$label.start"
+: > "$marker"   # find -newer compares nanosecond mtimes (APFS, ext4)
+if [ "$add_flags" -eq 1 ]; then
+  # shellcheck disable=SC2086
+  "$@" $KEEL_FLAGS 2>&1 | tee "$log"
+else
+  "$@" 2>&1 | tee "$log"
+fi
+rc=${PIPESTATUS[0]}
+
+# fresh reports → ran / failing sets (classname#name)
+reports=$(find . \( -path '*/target/surefire-reports/TEST-*.xml' -o -path '*/target/failsafe-reports/TEST-*.xml' \) -newer "$marker" -not -path './.git/*' 2>/dev/null)
+ran_f="$vdir/$label.ran"; fail_f="$vdir/$label.failing"
+if [ -n "$reports" ]; then
+  # shellcheck disable=SC2086
+  awk '
+    function attr(s, a,   r) { r = ""; if (match(s, a "=\"[^\"]*\"")) { r = substr(s, RSTART + length(a) + 2, RLENGTH - length(a) - 3) } return r }
+    /<testcase[ >]/ { id = attr($0, "classname") "#" attr($0, "name"); inside = 1; failed = 0; skipped = 0
+                      if ($0 ~ /\/>[[:space:]]*$/ && $0 !~ /<failure|<error/) { print "R\t" id; inside = 0 } }
+    inside && /<failure|<error/ { failed = 1 }
+    inside && /<skipped/ { skipped = 1 }
+    inside && /<\/testcase>/ { if (!skipped) print "R\t" id; if (failed) print "F\t" id; inside = 0 }
+  ' $reports > "$vdir/$label.parsed"
+  awk -F'\t' '$1 == "R" { print $2 }' "$vdir/$label.parsed" | LC_ALL=C sort -u > "$ran_f"
+  awk -F'\t' '$1 == "F" { print $2 }' "$vdir/$label.parsed" | LC_ALL=C sort -u > "$fail_f"
+  tests=present
+else
+  : > "$ran_f"; : > "$fail_f"; tests=none
+fi
+failing=$(wc -l < "$fail_f" | tr -d ' ')
+
+# compiled? (Maven: no failed goal other than surefire/failsafe)
+compiled=1
+if [ "$rc" -ne 0 ]; then
+  if [ "$is_maven" -eq 1 ] && [ -n "$reports" ] && ! grep -q 'COMPILATION ERROR' "$log" && \
+     ! grep '\[ERROR\] Failed to execute goal' "$log" | grep -qvE 'maven-(surefire|failsafe)-plugin'; then
+    compiled=1
+  else
+    compiled=0
+  fi
+fi
+[ "$is_maven" -eq 1 ] && grep -q 'COMPILATION ERROR' "$log" && compiled=0
+
+build=host; [ "$is_maven" -eq 1 ] && build=maven
+emit_all() {
+  keel_emit RESULT "$1"; keel_emit FAILING "$failing"; keel_emit NEW "${new:-0}"; keel_emit TESTS "$tests"; keel_emit BUILD "$build"; keel_emit LOG "$log"
+}
+
+if [ "$label" = baseline ]; then
+  printf '%s\n' "$cmd_plain" > "$vdir/baseline.cmd"   # ran/failing are already baseline.ran/.failing
+  new=0
+  if [ "$compiled" -eq 1 ]; then
+    [ "$failing" -gt 0 ] && printf 'keel-verify: %s test(s) already fail before any change (pre-existing, reported as unrelated)\n' "$failing" >&2
+    emit_all pass; exit 0
+  fi
+  emit_all fail; exit 1
+fi
+
+# later labels
+if [ "$tests" = none ] && [ "$kind" = behavior ]; then
+  emit_all fail; echo "MISSING=test-command"
+  keel_die 3 "keel-verify: a behavior unit needs test reports; set up the test command first"
+fi
+new_list=$(LC_ALL=C comm -23 "$fail_f" <(LC_ALL=C sort -u "$b_failing" 2>/dev/null))
+# missing reports: same command as the baseline, baseline ran set known
+b_cmd=$(cat "$vdir/baseline.cmd" 2>/dev/null || cat "$vdir/baseline.cmd.restored" 2>/dev/null)
+if [ "$b_ran_known" -eq 1 ] && [ -f "$vdir/baseline.ran" ] && [ "$cmd_plain" = "$b_cmd" ]; then
+  changed_classes=
+  base=$("$(keel_root)/bin/keel-ledger" last "$feature" branch 2>/dev/null | awk -F'\t' '{ print $4 }')
+  if [ -n "$base" ]; then
+    seed=$base; git rev-parse -q --verify "$base^{tree}" >/dev/null 2>&1 || seed=EMPTY
+    wt=$(keel_worktree_tree "$seed" "$scratch")
+    from="$base^{tree}"; [ "$seed" = EMPTY ] && from=$(keel_empty_tree)
+    for p in $(git diff --name-only "$from" "$wt" 2>/dev/null); do
+      case "$p" in *.java) c=/$p; c=${c##*/src/test/java/}; c=${c%.java}; c=$(printf '%s' "$c" | tr '/' '.'); changed_classes="$changed_classes $c" ;; esac
+    done
+  fi
+  missing=$(LC_ALL=C comm -23 "$vdir/baseline.ran" "$ran_f" | while IFS= read -r t; do
+    cls=${t%%#*}; skip=0
+    for c in $changed_classes; do [ "$c" = "$cls" ] && skip=1; done
+    [ "$skip" -eq 0 ] && printf '%s\n' "$t"
+  done)
+  [ -n "$missing" ] && new_list=$(printf '%s\n%s\n' "$new_list" "$missing" | sed '/^$/d' | LC_ALL=C sort -u)
+fi
+new=$(printf '%s\n' "$new_list" | grep -c . || true)
+[ "$new" -gt 0 ] && printf 'keel-verify: new failures or missing tests:\n%s\n' "$new_list" >&2
+if [ "$compiled" -eq 1 ] && [ "$new" -eq 0 ]; then emit_all pass; exit 0; fi
+emit_all fail; exit 1

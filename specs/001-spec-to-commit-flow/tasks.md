@@ -193,7 +193,7 @@ case passes.
     - the already-failing-test RED for `FIN-n` with `intent=fix`;
     - non-behavior and refactor units skip RED.
   - It also exports the guard environment to the commands it spawns.
-- [ ] T027 Write `plugin/bin/keel-verify` (`run --label --kind -- <cmd>` and `detect`), with tests in `tests/scripts/keel-verify_test.sh` using a fake build command that writes surefire XML fixtures under `tests/fixtures/surefire/` (test first).
+- [X] T027 Write `plugin/bin/keel-verify` (`run --label --kind -- <cmd>` and `detect`), with tests in `tests/scripts/keel-verify_test.sh` using a fake build command that writes surefire XML fixtures under `tests/fixtures/surefire/` (test first).
   - Baseline semantics: always `-fae -Dmaven.test.failure.ignore=true`, compiled-only pass, `TESTS=none`, `BUILD=none`, `BUILD=undetected`.
   - Later-label `NEW` rules: commands compared with keel's flags stripped, and the missing-report clause.
   - Report handling: a fresh-report start marker, and changed-test exclusion computed tree-to-tree.
