@@ -243,8 +243,8 @@ mut/classification.tsv, mut/run.log   (triage decisions are committed: specs/<NN
 - **Restart keeps the ID**: a recovered unit restarts under the same ID. The numbering rule applies
   only to new units.
 - Ledger rows:
-  - `<step> started <BASE> <unit> <intent> <paths>` when the unit starts. `intent` is `n/a`,
-    `fix` or `refactor` (§7);
+  - `<step> started <BASE> <unit> <intent> <paths>` when the unit starts. `intent` is `n/a` (tasks),
+    `fix`, `refactor` or `gap` (MUT-n and FIN gap units) (§7);
   - `ok <sha> <unit>`, `halted <ref> <unit> <reason>` or `abandoned <ref> <unit>` to close it.
 - Test runs go through `keel-evidence`, which records working-tree ids.
 

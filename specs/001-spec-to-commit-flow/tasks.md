@@ -186,7 +186,7 @@ case passes.
   - Handles an unborn HEAD (`symbolic-ref`), stacking from another feature branch, and default-branch detection without network.
   - The no-network test uses an unroutable remote URL.
 - [X] T025 Write `plugin/bin/keel-diff` (`--unit` while open and after its commit, `--base` two-dot, `--kind` with `src/main/resources` counted as production), using the seeded temp index from `plugin/lib/common.sh`. Tests in `tests/scripts/keel-diff_test.sh`: `feature.json` never appears, a tracked-but-ignored file isn't shown as deleted, and runs from a module subdir work (test first).
-- [ ] T026 Write `plugin/bin/keel-evidence` (`run`/`check <unit>`), with tests in `tests/scripts/keel-evidence_test.sh` (test first).
+- [X] T026 Write `plugin/bin/keel-evidence` (`run`/`check <unit>`), with tests in `tests/scripts/keel-evidence_test.sh` (test first).
   - `run` tees the log and records the working-tree id in `index.tsv`.
   - `check` implements the per-unit rule from data-model.md §7, reading `intent` from the ledger row:
     - the tree conditions for rules 3–4;
