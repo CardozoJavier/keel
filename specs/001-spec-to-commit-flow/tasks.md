@@ -200,7 +200,7 @@ case passes.
   - `MISSING=test-command` only for behavior units.
   - `detect` reports `BUILD`/`TESTCMD`/`TESTFW` by build files, source extensions and test-scoped JUnit/TestNG dependencies.
   - It also exports the guard environment to the commands it spawns.
-- [ ] T028 Write `plugin/bin/keel-brief` (`<unit> [--from <path>]`) and `plugin/templates/brief.md`, following the brief format in contracts/agent-handoffs.md. Tests in `tests/scripts/keel-brief_test.sh` (test first).
+- [X] T028 Write `plugin/bin/keel-brief` (`<unit> [--from <path>]`) and `plugin/templates/brief.md`, following the brief format in contracts/agent-handoffs.md. Tests in `tests/scripts/keel-brief_test.sh` (test first).
   - For tasks: the tasks.md line, `[US#]`, the FR and acceptance-scenario excerpts, and plan/data-model/contracts excerpts by path.
   - For MUT, REV and FIN units: the `--from` content, the touched FRs, `intent` and allowed paths.
 - [ ] T029 Write `plugin/bin/keel-state` (`next`/`require`/`facts`), with tests in `tests/scripts/keel-state_test.sh` using fixture feature directories under `tests/fixtures/repos/` (test first).
