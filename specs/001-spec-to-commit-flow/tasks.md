@@ -127,10 +127,10 @@ case passes.
   - Core subcommands pass, extensions and unknown subcommands are denied, and `--version`/`version`/`help` pass.
   - Allow cases include `pr view`, `pr edit` and comment POSTs.
 - [X] T014 [P] Write the thin shims `plugin/shims/{jj,sl,gt,glab,hub}` with rule A7, with tests in `tests/guard/shims/others_test.sh` (test first; a fake real binary on PATH records its argv).
-- [ ] T015 Write layer A0 and the session environment, with tests in `tests/guard/a0_test.sh` against a local bare-remote fixture (test first).
+- [X] T015 Write layer A0 and the session environment, with tests in `tests/guard/a0_test.sh` against a local bare-remote fixture (test first).
   - Write `plugin/hooks/deny-push`, `plugin/shims/git-remote-keel-blocked-push` and `plugin/hooks/session-env.sh`.
   - `session-env.sh` appends to `$CLAUDE_ENV_FILE`:
-    - `GIT_CONFIG_COUNT/KEY/VALUE` with 4 entries, appending after existing ones and idempotent when keel's keys are already present;
+    - `GIT_CONFIG_COUNT/KEY/VALUE` with 5 entries (the 5th, `protocol.keel-blocked-push.allow`, lets the helper report inside `submodule foreach`), appending after existing ones and idempotent when keel's keys are already present;
     - `PATH` with the shims first, plus `KEEL_SHIMS`, `KEEL_ROOT`, `KEEL_REAL_GIT` and `KEEL_REAL_GH`.
   - Every push form is blocked with only the A0 environment and no shims:
     - plain push, `/usr/bin/git push`, `xcrun git push`, `env -P /usr/bin git push`, `zsh -lc`, `bash -lc`;
@@ -138,7 +138,7 @@ case passes.
     - `rebase -x`, `submodule foreach`, `bisect run`;
     - `--no-verify` (blocked by the URL rewrite), and a file-config `hook.keel-nopush.enabled=false` (the environment wins).
   - Fetch, ls-remote and clone still work, and the remote is unchanged after every case.
-- [ ] T016 Write the functional guard self-check in `plugin/lib/guard-check.sh`, with tests in `tests/guard/selfcheck_test.sh` (test first).
+- [X] T016 Write the functional guard self-check in `plugin/lib/guard-check.sh`, with tests in `tests/guard/selfcheck_test.sh` (test first).
   - Passes only when all of these hold:
     - `git hook list pre-push` lists `keel-nopush` as enabled;
     - every `git remote get-url --push --all` URL starts with `keel-blocked-push://`;

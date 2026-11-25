@@ -1,0 +1,7 @@
+#!/bin/sh
+# keel-shim: never resolve to this file as the real binary
+# keel push guard, layer A0: remote helper for the keel-blocked-push:// scheme. keel-env.sh rewrites
+# every push URL to this scheme (empty-prefix url.*.pushInsteadOf), so a push that skipped the
+# pre-push hook (--no-verify) ends here with a clear message instead of "not a git command".
+echo "keel: blocked publish (A0): push to ${2:-$1} rewritten to keel-blocked-push://. Run it yourself if intended." >&2
+exit 1

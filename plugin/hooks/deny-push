@@ -1,0 +1,6 @@
+#!/bin/sh
+# keel push guard, layer A0: config-defined pre-push hook (hook.keel-nopush.*, set by keel-env.sh).
+# Runs for every `git push` however it was started (hooks, ! aliases, rebase -x, login shells,
+# absolute paths). `--no-verify` skips hooks; the pushInsteadOf rewrite still blocks those pushes.
+echo "keel: blocked publish (A0): git push to ${1:-remote}${2:+ ($2)}. Run it yourself if intended." >&2
+exit 1

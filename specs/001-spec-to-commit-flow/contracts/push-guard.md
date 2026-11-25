@@ -63,17 +63,18 @@ Implements FR-022, SC-002 and constitution I (v1.3.0).
 
 The `SessionStart` hook `${CLAUDE_PLUGIN_ROOT}/hooks/session-env.sh` appends to `$CLAUDE_ENV_FILE`.
 - **Starting index**: if `GIT_CONFIG_COUNT` is already set in the hook's environment, keel's
-  entries start at index N and the count becomes N+4. Otherwise they start at index 0.
+  entries start at index N and the count becomes N+5. Otherwise they start at index 0.
 - **Idempotent**: `session-env.sh`, `keel-verify` and `keel-evidence` (which re-export the
   environment for the commands they spawn) first look for keel's keys among the existing
   `GIT_CONFIG_KEY_*`. They never append them twice.
 
 ```sh
-export GIT_CONFIG_COUNT=<N+4>
+export GIT_CONFIG_COUNT=<N+5>
 export GIT_CONFIG_KEY_<N>=hook.keel-nopush.event          GIT_CONFIG_VALUE_<N>=pre-push
 export GIT_CONFIG_KEY_<N+1>=hook.keel-nopush.command      GIT_CONFIG_VALUE_<N+1>=<plugin-root>/hooks/deny-push
 export GIT_CONFIG_KEY_<N+2>=hook.keel-nopush.enabled      GIT_CONFIG_VALUE_<N+2>=true
 export GIT_CONFIG_KEY_<N+3>=url.keel-blocked-push://.pushInsteadOf  GIT_CONFIG_VALUE_<N+3>=
+export GIT_CONFIG_KEY_<N+4>=protocol.keel-blocked-push.allow  GIT_CONFIG_VALUE_<N+4>=always   # submodule foreach restricts transports
 export KEEL_ROOT=<plugin-root> KEEL_SHIMS=<plugin-root>/shims
 export KEEL_REAL_GIT=<first non-shim git on PATH, resolved> KEEL_REAL_GH=<same for gh>
 export PATH="<plugin-root>/shims:$PATH"
