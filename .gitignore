@@ -8,3 +8,5 @@ target/
 *.tmp
 .idea/
 .vscode/
+# claude plugin eval results
+plugin/evals/results/

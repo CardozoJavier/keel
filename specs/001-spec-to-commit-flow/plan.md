@@ -569,7 +569,9 @@ history (`<base>..HEAD`).
 - GitHub MCP tools are default-deny, except reads and named non-publishing writes.
 - Codex runs with full access are denied.
 
-**Settings**: `plugin.json` sets `defaultEnabled: false`, and keel is enabled per repository.
+**Settings**: keel is installed per repository with `--scope local`, so its hooks don't run in
+other sessions. `defaultEnabled: false` is not used: `claude plugin eval` can't enable such a plugin
+(research R7).
 
 **Escape hatch**: `claude --settings '{"disableAllHooks": true}'`.
 
@@ -711,7 +713,7 @@ specs/001-spec-to-commit-flow/
 ```text
 .claude-plugin/marketplace.json     # local marketplace; source ./plugin (FR-029)
 plugin/                             # the plugin root (no CLAUDE.md here, so validate stays clean)
-├── .claude-plugin/plugin.json      # defaultEnabled: false
+├── .claude-plugin/plugin.json      # installed per repository (--scope local)
 ├── skills/{run,constitution,specify,clarify,plan,tasks,analyze,implement,mutate,review,finish,
 │           debug,verify,respond-review,test-audit,tdd}/SKILL.md
 ├── agents/{explorer,architect,plan-reviewer,implementer,task-reviewer,code-reviewer}.md
@@ -742,7 +744,7 @@ NOTICE  README.md  CLAUDE.md
 ## Build sequence (feeds tasks.md; each milestone is verifiable on its own)
 
 - **M0 Skeleton**:
-  - Contents: marketplace, `plugin.json` (`defaultEnabled: false`), vendor copy, licenses,
+  - Contents: marketplace, `plugin.json`, vendor copy, licenses,
     PROVENANCE, CHANGELOG, NOTICE, test harness, `lib/common.sh` (root discovery, portability
     helpers).
   - Check: `claude plugin validate plugin/` passes and the harness is green.

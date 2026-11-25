@@ -175,3 +175,21 @@ keel may rely only on bash and git (constitution, Plugin Constraints). The only 
 - The project is detected from the working directory (git remote). Saves made from a target repo
   are filed under that repo's project, which is what keel wants.
 - Memory tools may be absent; FR-025 requires silent skip.
+
+## R7. Empirical checks during implementation
+
+- **R7.1 `claude plugin eval`** (T008, 2026-11-25, Claude Code 2.1.332):
+  - **Cases**: they must live below the plugin root (`plugin/evals/<case>/`, with `prompt.md` and
+    `graders/*.md`, or `case.yaml`). `context.scaffold_script` and `context.history_file` exist only
+    in `case.yaml`.
+  - **Grader types**: regex, tool_used (`max: 0` for "not used"), tool_order, file_exists, llm and
+    baseline.
+  - **The plugin is enabled automatically**: a smoke case passed, with the plugin under test loaded
+    by the runner.
+  - **Finding**: a manifest with `defaultEnabled: false` makes the runner run **without** the
+    plugin ("nothing in the eval sandbox enables it"). Decision: drop `defaultEnabled`; keel is
+    installed per repository with `claude plugin install keel@keel --scope local`, which keeps its
+    hooks out of other sessions just as well. The plan, quickstart and push-guard contract were
+    updated.
+  - **Still open, for T031**: the `history_file` `.jsonl` format, and whether a call blocked by a
+    PreToolUse hook counts in `tool_used`.

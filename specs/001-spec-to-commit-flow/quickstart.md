@@ -3,13 +3,17 @@
 ## Install (local marketplace at the repo root; the plugin root is `plugin/`)
 
 ```text
-/plugin marketplace add ~/dev/projects/keel
-/plugin install keel@keel
+claude plugin marketplace add ~/dev/projects/keel     # once
+cd <repo> && claude plugin install keel@keel --scope local   # per repository
 /reload-plugins            # picks up edits to the keel repo
 ```
 
-`plugin.json` sets `defaultEnabled: false`. Installing keel doesn't activate it, and neither does
-its push guard. You enable it per repository.
+Install keel with `--scope local`, once per repository. The plugin and its push guard are then
+active only in that repository, and only for you. Don't install it at user scope: its hooks would
+run in every session.
+
+`defaultEnabled: false` was dropped, because `claude plugin eval` can't enable such a plugin in
+its sandbox (research R7). A local-scope install gives the same isolation.
 
 After enabling keel, **start a new session**. The push guard's git-level and PATH layers are set
 up at session start, and `/reload-plugins` alone leaves only the static layer active. keel runs

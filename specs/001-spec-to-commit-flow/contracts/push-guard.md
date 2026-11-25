@@ -352,7 +352,9 @@ empty stdin
 
 ## Enablement, degraded mode, escape hatch
 
-- **Enablement**: `plugin.json` has `"defaultEnabled": false`, and keel is enabled per repository.
+- **Enablement**: keel is installed per repository with `claude plugin install keel@keel --scope
+  local`, so the guard is active only where keel is meant to run. It is never installed at user
+  scope.
   In those sessions, `/ship` and `/steward` can't push.
 - **Degraded mode**:
   - If SessionStart didn't run in a session (e.g. keel was enabled mid-session through

@@ -12,6 +12,5 @@
     "mutation-testing",
     "code-review",
     "workflow"
-  ],
-  "defaultEnabled": false
+  ]
 }

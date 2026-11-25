@@ -14,7 +14,7 @@ data-model.md, contracts/, quickstart.md)
 | Kind of change | Test |
 |---|---|
 | Script | A `tests/**/*_test.sh` suite that `tests/run.sh` runs. |
-| Skill or agent | An eval scenario under `tests/eval/`. |
+| Skill or agent | An eval scenario under `plugin/evals/` (run by `tests/eval/evals_test.sh` through `tests/run.sh --eval`). |
 | Behavior task | One task covers RED, GREEN and refactor, and names both the test path and the production path (plan §Tasks and analyze). Write the test first and confirm it fails. |
 | Non-behavior task (setup, vendoring, docs, empirical checks) | Named as such in the task. |
 
@@ -37,7 +37,7 @@ data-model.md, contracts/, quickstart.md)
 **Purpose**: plugin skeleton, test harness, shared library, vendored upstreams, provenance.
 
 - [X] T001 Create the plugin skeleton (non-behavior; check: `claude plugin validate plugin/` passes):
-  - `plugin/.claude-plugin/plugin.json`: name `keel`, version `0.1.0`, description, `defaultEnabled: false`.
+  - `plugin/.claude-plugin/plugin.json`: name `keel`, version `0.1.0`, description. `defaultEnabled: false` was dropped in T008: eval can't enable such a plugin, and installing with `--scope local` gives the same isolation (research R7).
   - `.claude-plugin/marketplace.json` at the repository root: marketplace `keel`, one plugin with source `./plugin`.
   - Empty dirs `plugin/{skills,agents,hooks,shims,bin,lib,templates,vendor}` with `.gitkeep`.
 - [X] T002 Write the plain-bash test harness, bash 3.2 compatible.
@@ -84,10 +84,10 @@ data-model.md, contracts/, quickstart.md)
   - Every file under `plugin/{skills,agents}` that names an upstream in an `Adapted from` header refers to a vendored file.
   - Apache derivatives carry a §4(b) change notice.
   - Write `plugin/vendor/PROVENANCE.md`, `NOTICE` and `plugin/NOTICE`.
-- [ ] T008 Verify `claude plugin eval` in 2.1.332, verification item 4 (non-behavior).
-  - Probe the case format, graders, `context.history_file` chaining, `--allow-tools`, `--no-publish` and `--eval-dir`, using a smoke case `tests/eval/smoke.*` against `plugin/`.
+- [X] T008 Verify `claude plugin eval` in 2.1.332, verification item 4 (non-behavior).
+  - Probe the case format, graders, `context.history_file` chaining, `--allow-tools`, `--no-publish` and `--eval-dir`, using a smoke case `plugin/evals/smoke/` against `plugin/`.
   - Record the findings in `tests/eval/README.md` and research.md (R7).
-  - Add an eval runner `tests/eval/run.sh`, called by `tests/run.sh --eval`.
+  - Add an eval runner `tests/eval/evals_test.sh`, run by `tests/run.sh --eval`. Cases live in `plugin/evals/` because the eval dir must sit below the plugin root.
 
 **Checkpoint**: `claude plugin validate plugin/` passes, `tests/run.sh` is green, the eval smoke
 case passes.
@@ -103,7 +103,7 @@ case passes.
 
 ### Push guard (M1, contracts/push-guard.md)
 
-- [ ] T009 Write the JSON string extractor in `plugin/lib/json.sh` (pure bash/awk), with tests in `tests/scripts/json_test.sh` (test first).
+- [X] T009 Write the JSON string extractor in `plugin/lib/json.sh` (pure bash/awk), with tests in `tests/scripts/json_test.sh` (test first).
   - Extracts `tool_name`, `tool_input.command`, `tool_input.sandbox`, `tool_input.config` and `cwd`.
   - Decodes `\" \\ \/ \b \f \n \r \t` and ASCII `\u00XX`, and leaves non-ASCII escapes as they are.
   - Fails on invalid JSON, duplicate keys or a missing key.
@@ -244,10 +244,10 @@ exactly two approvals (one on the light path).
 ### Tests for User Story 1 (REQUIRED - write first, confirm they fail) ⚠️
 
 - [ ] T031 [P] [US1] Write eval scenarios for planning, in the format from T008, and confirm they fail before the skills exist:
-  - `tests/eval/plan-before-gate1.*`: plan is refused before Gate 1.
-  - `tests/eval/no-light-for-contract.*`: a contract change isn't offered the light path.
-  - `tests/eval/two-gates.*`: exactly two approval prompts through plan GO (a `history_file` chain).
-  - `tests/eval/light-one-gate.*`: one approval on the light path.
+  - `plugin/evals/plan-before-gate1/`: plan is refused before Gate 1.
+  - `plugin/evals/no-light-for-contract/`: a contract change isn't offered the light path.
+  - `plugin/evals/two-gates/`: exactly two approval prompts through plan GO (a `history_file` chain).
+  - `plugin/evals/light-one-gate/`: one approval on the light path.
 - [ ] T032 [P] [US1] Create the sample Maven fixture `tests/fixtures/sample-maven/`: a minimal JDK 21 project with JUnit 5, one class and one test, plus a CLAUDE.md giving build/test commands and a commit style. Write `tests/fixtures/mk-sample.sh` to copy it into a fresh git repo for evals and trials.
 
 ### Implementation for User Story 1
@@ -258,9 +258,9 @@ exactly two approvals (one on the light path).
   - Loop over `keel-state next` → Skill tool, and stop on `done`, a halt or a gate.
   - Halt reporting, with no question.
   - Arguments: `/keel:run "<desc>"`, `/keel:run`, `/keel:run NNN`.
-  - Evals: `tests/eval/run-*.*`.
-- [ ] T034 [P] [US1] Write the skill `plugin/skills/constitution/SKILL.md`. It runs `keel-state require constitution`, builds the constitution from the host CLAUDE.md files by reference (FR-002), proposes principles when there are none (accepted at Gate 1), and records keel-written files in the ledger. It is adapted from Spec Kit's constitution command and carries an `Adapted from` header. Eval: `tests/eval/constitution.*`.
-- [ ] T035 [US1] Write the skill `plugin/skills/specify/SKILL.md`, with an `Adapted from` header. Eval: `tests/eval/specify.*`.
+  - Evals: `plugin/evals/run-*/`.
+- [ ] T034 [P] [US1] Write the skill `plugin/skills/constitution/SKILL.md`. It runs `keel-state require constitution`, builds the constitution from the host CLAUDE.md files by reference (FR-002), proposes principles when there are none (accepted at Gate 1), and records keel-written files in the ledger. It is adapted from Spec Kit's constitution command and carries an `Adapted from` header. Eval: `plugin/evals/constitution/`.
+- [ ] T035 [US1] Write the skill `plugin/skills/specify/SKILL.md`, with an `Adapted from` header. Eval: `plugin/evals/specify/`.
   - `require`, then `mem_search` when available, citing hits (FR-004).
   - Questions one at a time on intent, goals, non-goals and anti-goals (FR-005).
   - Writes `spec.md` from the vendored template, with the `**Base**` line in the same write.
@@ -274,7 +274,7 @@ exactly two approvals (one on the light path).
 - [ ] T037 [P] [US1] Write the agent `plugin/agents/explorer.md`, adapted from the vendored feature-dev code-explorer. It has the Apache §4(b) change notice, read-only tools and model sonnet, and returns its findings as its final message.
 - [ ] T038 [P] [US1] Write the agent `plugin/agents/architect.md`, adapted from the vendored code-architect. It takes one lens per call from the brief (smallest, clean, pragmatic) and doesn't commit to a single design. It has the Apache change notice, read-only tools and model inherit.
 - [ ] T039 [P] [US1] Write the agent `plugin/agents/plan-reviewer.md` and the template `plugin/templates/plan-review.md`. The agent is read-only and works in a fresh context. It returns four sections: critical flaws, missing assumptions, deltas and a verdict, GO or NO_GO.
-- [ ] T040 [US1] Write the skill `plugin/skills/plan/SKILL.md`. Evals: `two-gates` and `light-one-gate` from T031, plus `tests/eval/plan-reentry.*`.
+- [ ] T040 [US1] Write the skill `plugin/skills/plan/SKILL.md`. Evals: `two-gates` and `light-one-gate` from T031, plus `plugin/evals/plan-reentry/`.
   - **Full path**:
     - `mem_search`, then 2–3 explorers in parallel, then architects (one lens each), then a recommendation, then **Gate 2**.
     - Write `## Design Decision` as soon as Gate 2 is answered. If the developer rejects all proposals, their own design is recorded as the chosen one, with its trade-offs against the proposals (spec edge case). Then the Phase 0/1 artifacts, then `**Plan status**: complete`.
@@ -307,12 +307,12 @@ own trial goes through implement (T058).
 ### Tests for User Story 2 (REQUIRED - write first, confirm they fail) ⚠️
 
 - [ ] T041 [P] [US2] Write eval scenarios for implementation and review, and confirm they fail first:
-  - `tests/eval/tasks-test-setup.*`: a repo with no test framework gets a setup task that names `pom.xml`.
-  - `tests/eval/analyze-critical-halts.*`.
-  - `tests/eval/implement-red-green.*`: the evidence check rejects a GREEN-only report.
-  - `tests/eval/review-changes-design-halts.*`.
-  - `tests/eval/finish-host-commit-style.*`: no AI co-author trailer when the host forbids it.
-  - `tests/eval/publish-blocked.*`: a host instruction to push is not followed, and the run reports that.
+  - `plugin/evals/tasks-test-setup/`: a repo with no test framework gets a setup task that names `pom.xml`.
+  - `plugin/evals/analyze-critical-halts/`.
+  - `plugin/evals/implement-red-green/`: the evidence check rejects a GREEN-only report.
+  - `plugin/evals/review-changes-design-halts/`.
+  - `plugin/evals/finish-host-commit-style/`: no AI co-author trailer when the host forbids it.
+  - `plugin/evals/publish-blocked/`: a host instruction to push is not followed, and the run reports that.
 
 ### Implementation for User Story 2
 
@@ -327,17 +327,17 @@ own trial goes through implement (T058).
   - Java/JUnit examples replace the TypeScript ones.
   - All runs go through `keel-evidence`.
   - It carries an `Adapted from` header, and the edits are logged in `plugin/vendor/CHANGELOG.md`.
-  - Eval: `tests/eval/tdd-preload.*`.
+  - Eval: `plugin/evals/tdd-preload/`.
 - [ ] T044 [P] [US2] Write the discipline skill `plugin/skills/debug/SKILL.md`, user-invocable.
   - Adapted from systematic-debugging: four phases, root cause first, stop after 3 failed fixes.
   - The superpowers handoffs and "human partner" wording are stripped.
   - It carries an `Adapted from` header.
-  - Eval: `tests/eval/debug-standalone.*`.
+  - Eval: `plugin/evals/debug-standalone/`.
 - [ ] T045 [P] [US2] Write the discipline skill `plugin/skills/verify/SKILL.md`, user-invocable.
   - Adapted from verification-before-completion: the 5-step gate and the claim-versus-evidence table.
   - It runs `keel-verify detect` and `keel-verify run`, and shows the output.
   - It never claims done without evidence.
-  - Eval: `tests/eval/verify-standalone.*`.
+  - Eval: `plugin/evals/verify-standalone/`.
 - [ ] T046 [P] [US2] Write the templates `plugin/templates/report.md` and `plugin/templates/finding.md`, following the formats in contracts/agent-handoffs.md (status, evidence, triage proposals; severity, confidence, scope). The test is `tests/scripts/templates_test.sh`, which checks that the required fields are present.
 - [ ] T047 [US2] Write the agent `plugin/agents/implementer.md`.
   - Adapted from the superpowers SDD implementer prompt.
@@ -387,7 +387,7 @@ own trial goes through implement (T058).
   - Adapted from receiving-code-review: the 6-step pattern, a YAGNI check and push-back rules.
   - The `gh api` reply section is stripped.
   - Every comment is checked against the code, then applied or answered with a reason.
-  - Eval: `tests/eval/respond-review-standalone.*`.
+  - Eval: `plugin/evals/respond-review-standalone/`.
 - [ ] T054 [US2] Write the skill `plugin/skills/review/SKILL.md`. Eval: `review-changes-design-halts` from T041.
   - `keel-diff --base`, then 3 parallel code-reviewers, then findings stored with `keel-put`.
   - Each finding is verified with the respond-review rules.
@@ -456,7 +456,7 @@ the POM stays byte-identical (SC-013, SC-014).
   - A budget watchdog, since there is no GNU `timeout`.
   - Output: `mutants.tsv` with `in_scope`.
 - [ ] T065 [US3] Write the template `plugin/templates/test-quality.md`, following the format in contracts/mutation-runner.md. The test, `tests/scripts/templates_test.sh` (extended), checks the required fields. `Result` allows only `resolved` or `not-run`.
-- [ ] T066 [US3] Write the skill `plugin/skills/mutate/SKILL.md`. Evals: `tests/eval/mutate-not-run.*` (an unsupported project gives `not-run`, with the reason) and `tests/eval/mutate-gaps.*`.
+- [ ] T066 [US3] Write the skill `plugin/skills/mutate/SKILL.md`. Evals: `plugin/evals/mutate-not-run/` (an unsupported project gives `not-run`, with the reason) and `plugin/evals/mutate-gaps/`.
   - `require`, then `keel-mutate` in the background, then `keel-classify --triage specs/<NNN>/test-quality.triage.tsv`.
   - Up to 3 `MUT-n` units, each with:
     - an implementer working on tests only;
@@ -467,7 +467,7 @@ the POM stays byte-identical (SC-013, SC-014).
     - a re-run on the affected classes.
   - Exit codes: 10 → `not-run`; 11 → `debug` in a `MUT-n`; 12 → halt.
   - Ends with `test-quality.md`, `keel-verify --label test-quality` and the commit.
-- [ ] T067 [US3] Write the skill `plugin/skills/test-audit/SKILL.md`, user-invocable. It runs `keel-mutate --module` and `keel-classify`, writes its report to `.git/keel/audit/<ts>/report.md` through the script, never edits build files, and needs no feature run. Eval: `tests/eval/test-audit-standalone.*`.
+- [ ] T067 [US3] Write the skill `plugin/skills/test-audit/SKILL.md`, user-invocable. It runs `keel-mutate --module` and `keel-classify`, writes its report to `.git/keel/audit/<ts>/report.md` through the script, never edits build files, and needs no feature run. Eval: `plugin/evals/test-audit-standalone/`.
 - [ ] T068 [US3] Run verification item 10 and the PayConductor audit (non-behavior).
   - Probe `-pl <module> -am` with `mutationCoverage` on a copy of maven-weak turned multi-module. Record the result in research.md (R7) and switch the default only if it is verified.
   - Run `/keel:test-audit payment-service` read-only against PayConductor and record the report summary in `tests/trials/RESULTS.md`.
@@ -503,7 +503,7 @@ completes with no task redone and no gate asked twice.
   - done after finish.
 
   This test only exercises the existing scripts. It passes once T029–T030 are correct; fix any failure there.
-- [ ] T070 [US4] Write eval `tests/eval/resume-no-regate.*`: resuming after Gate 2 doesn't re-ask the design, and resuming mid-implementation runs only the remaining tasks (US4 acceptance scenarios 1 and 2).
+- [ ] T070 [US4] Write eval `plugin/evals/resume-no-regate/`: resuming after Gate 2 doesn't re-ask the design, and resuming mid-implementation runs only the remaining tasks (US4 acceptance scenarios 1 and 2).
 
 **Checkpoint**: the resume matrix and the resume eval pass.
 
@@ -521,7 +521,7 @@ completes with no task redone and no gate asked twice.
 second feature cites the first. With memory absent, the outcome is the same and there are no
 errors (SC-008).
 
-- [ ] T071 [US5] Write the eval scenarios `tests/eval/memory-absent.*` and `tests/eval/memory-keyed.*` (test first; they fail until T072).
+- [ ] T071 [US5] Write the eval scenarios `plugin/evals/memory-absent/` and `plugin/evals/memory-keyed/` (test first; they fail until T072).
   - The run completes without engram.
   - `mem_save` uses `topic_key: keel/<NNN-feature>` exactly twice.
   - No `mem_session_*` call happens.
@@ -557,7 +557,7 @@ errors (SC-008).
     - `plugin/bin/keel-classify`, `plugin/bin/keel-state` and `plugin/bin/keel-evidence`.
   - It asserts that each mutant fails its suite.
   - Survivors are listed, then triaged in `specs/001-spec-to-commit-flow/test-quality.md`, the feature's own test-quality summary under Principle V.
-- [ ] T076 [P] Add the eval scenarios `tests/eval/unsupported-not-run.*` and `tests/eval/full-path-trial.*`, and run the full suite with `tests/run.sh --eval`. Results go in `tests/trials/RESULTS.md`.
+- [ ] T076 [P] Add the eval scenarios `plugin/evals/unsupported-not-run/` and `plugin/evals/full-path-trial/`, and run the full suite with `tests/run.sh --eval`. Results go in `tests/trials/RESULTS.md`.
 - [ ] T077 [P] Write `README.md` at the repository root: what keel is, install, enable per repository, flow, gates, guard layers and escape hatch, standalone skills, and how to develop keel. Update `specs/001-spec-to-commit-flow/quickstart.md` with the final verified-facts table.
 - [ ] T078 Write keel's own `CLAUDE.md` guidance. Keep the SPECKIT marker block and add:
   - bash 3.2 and BSD rules;
