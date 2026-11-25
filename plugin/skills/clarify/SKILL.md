@@ -2,6 +2,7 @@
 name: clarify
 description: Resolve the remaining ambiguities in a keel spec (up to 5 targeted questions, one at a time), then hold Gate 1. It presents the spec and its change classification for explicit approval, and on approval records Status and Path in one edit. Used by /keel:run, or on its own.
 argument-hint: "--feature NNN-name"
+allowed-tools: Read, Grep, Glob, Bash(keel-state:*), Edit
 ---
 
 <!-- Adapted from speckit 0.8.4.dev0 commands/clarify.md (MIT): no extension hooks; ends with keel's

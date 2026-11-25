@@ -2,6 +2,7 @@
 name: constitution
 description: Create or update the repository's keel/Spec Kit constitution (.specify/memory/constitution.md) from the host's existing instructions (CLAUDE.md and similar), referring to them rather than copying them. Runs once per repository, or when those instructions change.
 argument-hint: "[--feature NNN-name]"
+allowed-tools: Read, Grep, Glob, Bash(keel-state:*), Write, Edit, Bash(keel-ledger:*), Bash(keel-branch:*)
 ---
 
 <!-- Adapted from speckit 0.8.4.dev0 commands/constitution.md (MIT): keel derives principles from

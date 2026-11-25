@@ -84,11 +84,27 @@ assert_eq pass "$(kv "$out" RESULT)" "a different command skips the missing-repo
 out=$(FAKE_EXIT=1 FAKE_LOG="[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.13.0:compile (default-compile) on project x: Compilation failure" vr run $f --label T005 -- mvn verify)
 assert_eq fail "$(kv "$out" RESULT)" "a compilation failure fails"
 
-# stale reports are ignored
-out=$(vr run $f --label T006 --kind non-behavior -- mvn verify)
+# stale reports are ignored; test sources with no fresh reports never pass as "no tests yet"
+# (research R7.5: an IDE's ECJ classes in target/ made surefire run 0 tests)
+out=$(vr run $f --label T006 --kind non-behavior -- mvn verify); rc=$?
 assert_eq none "$(kv "$out" TESTS)" "reports older than the start marker are ignored"
+assert_eq 1 "$rc" "test sources but no fresh reports fail"
+assert_eq fail "$(kv "$out" RESULT)" "RESULT=fail"
+assert_contains "$out" "MISSING=test-reports" "and name the missing test reports"
+assert_contains "$out" "mvn clean" "with the stale build output hint"
 out=$(vr run $f --label T007 --kind behavior -- mvn verify); rc=$?
-assert_eq 3 "$rc" "behavior unit with no test reports: MISSING=test-command"
+assert_eq 1 "$rc" "a behavior unit with test sources but no reports fails the same way"
+assert_contains "$out" "MISSING=test-reports" "MISSING=test-reports, not test-command"
+nt=$(mk_repo)
+printf '<project><dependencies><dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency></dependencies></project>\n' > "$nt/pom.xml"
+mkdir -p "$nt/src/main/java/c"; echo 'class C {}' > "$nt/src/main/java/c/C.java"
+git -C "$nt" add -A; git -C "$nt" commit -q -m init
+(cd "$nt" && "$L" append $f branch ok "$(git -C "$nt" rev-parse HEAD)" $f)
+out=$(cd "$nt" && "$V" run $f --label baseline -- mvn verify 2>&1)
+assert_eq pass "$(kv "$out" RESULT)" "no test sources yet: the baseline passes"
+assert_eq none "$(kv "$out" TESTS)" "with TESTS=none"
+out=$(cd "$nt" && "$V" run $f --label T001 --kind behavior -- mvn verify 2>&1); rc=$?
+assert_eq 3 "$rc" "behavior unit with no test sources and no reports: exit 3"
 assert_contains "$out" "MISSING=test-command" "reports MISSING=test-command"
 
 # --- baseline: red ---------------------------------------------------------------------------------
@@ -116,4 +132,35 @@ assert_eq none "$(kv "$out" BUILD)" "BUILD=none"
 assert_contains "$out" "nothing to build or test" "says so"
 out=$(cd "$r" && env -u GIT_CONFIG_COUNT "$V" run $f --label T008 -- sh -c 'echo "count=$GIT_CONFIG_COUNT"')
 assert_contains "$out" "count=5" "the build runs with the push guard environment"
+
+# --- record: the Analyzed line and keel:baseline comment, written from the baseline -------------
+rec=$(mk_repo); printf '<project/>\n' > "$rec/pom.xml"; git -C "$rec" add -A; git -C "$rec" commit -q -m init
+(cd "$rec" && "$L" append $f branch ok "$(git -C "$rec" rev-parse HEAD)" $f)
+mkdir -p "$rec/specs/$f"
+printf '# Tasks: x\n\n## Phase 1\n\n- [ ] T001 [US1] a in src/main/java/A.java (test: src/test/java/ATest.java)\n' > "$rec/specs/$f/tasks.md"
+out=$(cd "$rec" && "$V" record $f --setup none 2>&1); rc=$?
+assert_eq 3 "$rc" "record before a passing baseline exits 3"
+assert_contains "$out" "MISSING=baseline" "and names the missing baseline"
+assert_exit 1 "record rejects a bad --setup" -- sh -c "cd '$rec' && '$V' record $f --setup bogus"
+(cd "$rec" && FAKE_TESTS="pass:p.PTest#a fail:p.PTest#should_fail-x fail:p.PTest#odd%name" "$V" run $f --label baseline -- mvn verify >/dev/null 2>&1)
+out=$(cd "$rec" && "$V" record $f --setup T001); rc=$?
+assert_eq 0 "$rc" "record after the baseline"
+t=$(cat "$rec/specs/$f/tasks.md")
+assert_contains "$t" "**Analyzed**: $(date +%Y-%m-%d) (baseline 2 failing; build maven; tests present; setup T001)" "the Analyzed line"
+assert_contains "$t" "cmd: mvn verify" "the baseline command, without keel's flags"
+assert_contains "$t" "failing: p.PTest#should_fail%2Dx" "a - in a test ID is escaped"
+assert_contains "$t" "failing: p.PTest#odd%25name" "a % in a test ID is escaped"
+assert_eq "# Tasks: x" "$(head -1 "$rec/specs/$f/tasks.md")" "the title stays first"
+assert_contains "$t" "- [ ] T001 [US1]" "the tasks are kept"
+cp "$rec/specs/$f/tasks.md" "$rec/once.md"
+(cd "$rec" && "$V" record $f --setup T001 >/dev/null)
+assert_eq "" "$(diff "$rec/once.md" "$rec/specs/$f/tasks.md")" "record is idempotent"
+rm -f "$rec/once.md"
+rm -rf "$rec/.git/keel/$f/verify"
+out=$(cd "$rec" && FAKE_TESTS="pass:p.PTest#a fail:p.PTest#should_fail-x fail:p.PTest#odd%name" "$V" run $f --label T001 -- mvn verify)
+assert_eq 0 "$(kv "$out" NEW)" "the recorded failing set round-trips through the restore path"
+rec2=$(mk_repo); git -C "$rec2" commit -q --allow-empty -m init; mkdir -p "$rec2/specs/$f"
+printf '# Tasks: y\n\n- [ ] T001 a\n' > "$rec2/specs/$f/tasks.md"
+(cd "$rec2" && "$V" run $f --label baseline -- none >/dev/null && "$V" record $f --setup none >/dev/null)
+assert_contains "$(cat "$rec2/specs/$f/tasks.md")" "(baseline 0 failing; build none; tests none; setup none)" "nothing to build is recorded as build none, tests none"
 t_summary

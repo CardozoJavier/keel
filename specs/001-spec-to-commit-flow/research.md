@@ -227,6 +227,11 @@ keel may rely only on bash and git (constitution, Plugin Constraints). The only 
     `history_file`. Agent dispatches are asserted on `--output-format stream-json` output.
   - **Cost**: about one model session per turn. Scenarios run only with `tests/run.sh --scenarios`,
     never in the default suite.
+  - **Discrimination** (T044/T045/T053): the base model already debugs a planted bug and handles a
+    review comment well without keel's skill, so outcome-only asserts passed RED. Each scenario
+    therefore also asserts something only the skill causes (for example the guard precondition,
+    a dispatched keel agent, or a keel script's record), and is confirmed RED against a plugin
+    copy without the skill (`KEEL_SCN_PLUGIN`).
 - **R7.4 Agent preloads and permissions in subagents** (T042, 2026-11-25, verification items 2, 6
   and 11):
   - **Setup**: `tests/tools/t042_probe.sh`, with a probe plugin next to keel. Each case is a
@@ -251,6 +256,26 @@ keel may rely only on bash and git (constitution, Plugin Constraints). The only 
       implementer runs: `keel-evidence`, `keel-verify` and the read-only git commands.
     - Step skills keep `allowed-tools`, which apply because the run invokes them with the Skill
       tool in the main session.
+- **R7.5 IDE build output can make surefire run 0 tests** (T052 scenario, 2026-11-25):
+  - **Finding**: in a nested session, the user-level `jdtls-lsp` plugin compiled
+    `PriceTest.java` with ECJ but **without the Maven classpath** ("Test cannot be resolved to a
+    type"). It wrote stub classes into `target/test-classes` that carry no `@Test` annotations, and
+    created `.project`, `.classpath` and `.settings/`.
+    - Maven treated the stubs as up to date, so `mvn verify` exited 0 with "Tests run: 0".
+    - `mvn clean test` ran all 4 tests.
+  - **What keel did**: it failed closed for that behavior unit (`MISSING=test-command`). But a
+    baseline or a non-behavior unit would have passed as "no tests yet" (`TESTS=none`), a silent
+    false green.
+  - **Decision**: when a Maven run has test sources (`src/test/**` with a JVM extension) but
+    produces no fresh reports, `keel-verify` now returns `RESULT=fail MISSING=test-reports` for
+    every label, with a "clean the build output (mvn clean)" hint. `MISSING=test-command` remains
+    only for a behavior unit in a repository with no test sources.
+  - **Environment**: scenarios disable `jdtls-lsp` (and the GitHub plugin). The quickstart says to
+    ignore IDE metadata (`.project`, `.classpath`, `.settings/`).
+  - **The same run also exposed an orchestrator downgrade**: review re-scoped a reviewer's
+    `changes-design` finding to in-design while admitting the fix only met "exact to the cent"
+    approximately. The review skill now keeps a reviewer's `changes-design` scope unless an
+    in-design fix fully meets every cited requirement.
   - **Item 1** (user `!` commands): interactive-only, checked in T058/T080. It isn't required by
     FR-022, which covers the assistant's actions.
   - **Item 9** (minimum git for config hooks): the exact version is not determinable offline.

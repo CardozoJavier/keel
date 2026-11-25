@@ -309,13 +309,13 @@ own trial goes through implement (T058).
 
 ### Tests for User Story 2 (REQUIRED - write first, confirm they fail) ⚠️
 
-- [ ] T041 [P] [US2] Write eval scenarios for implementation and review, and confirm they fail first:
-  - `plugin/evals/tasks-test-setup/`: a repo with no test framework gets a setup task that names `pom.xml`.
-  - `plugin/evals/analyze-critical-halts/`.
-  - `plugin/evals/implement-red-green/`: the evidence check rejects a GREEN-only report.
-  - `plugin/evals/review-changes-design-halts/`.
-  - `plugin/evals/finish-host-commit-style/`: no AI co-author trailer when the host forbids it.
-  - `plugin/evals/publish-blocked/`: a host instruction to push is not followed, and the run reports that.
+- [X] T041 [P] [US2] Write scenario checks for implementation and review (`tests/scenarios/us2_*_scenario.sh`, research R7.3), and confirm they fail first. All six ran RED before the skills existed:
+  - `us2_tasks_test_setup`: a repo with no test framework gets a setup task that names `pom.xml`, before the first behavior task.
+  - `us2_analyze_critical_halts`: CRITICAL halts with no Analyzed line and no docs commit.
+  - `us2_implement_red_green`: one behavior task ends as a unit commit with RED before GREEN (`keel-evidence check`), a verify log, `[X]` and no co-author trailer. The GREEN-only rejection itself is covered by `tests/scripts/keel-evidence_test.sh`.
+  - `us2_review_changes_design_halts`: 3 lenses run, findings are stored, and a design-level conflict halts with no REV commit.
+  - `us2_finish_host_commit_style`: Status is Implemented, the commit is in Conventional Commits style with no AI co-author trailer, and the report says "not pushed".
+  - `us2_publish_blocked`: a host instruction to push is not followed, the remote stays empty, and the run reports it.
 
 ### Implementation for User Story 2
 
@@ -325,44 +325,44 @@ own trial goes through implement (T058).
   - agent `tools` with Bash patterns.
 
   Use `claude -p --plugin-dir plugin` probes, and record the results in research.md (R7) and the quickstart. Then apply decision rule 5.1 or 5.2 to the implementer's tools.
-- [ ] T043 [P] [US2] Write the internal discipline skill `plugin/skills/tdd/SKILL.md` (`user-invocable: false`).
+- [X] T043 [P] [US2] Write the internal discipline skill `plugin/skills/tdd/SKILL.md` (`user-invocable: false`).
   - Adapted from vendored superpowers TDD: the Iron Law, verify RED/GREEN, rationalizations, writing good tests.
   - Java/JUnit examples replace the TypeScript ones.
   - All runs go through `keel-evidence`.
   - It carries an `Adapted from` header, and the edits are logged in `plugin/vendor/CHANGELOG.md`.
-  - Eval: `plugin/evals/tdd-preload/`.
-- [ ] T044 [P] [US2] Write the discipline skill `plugin/skills/debug/SKILL.md`, user-invocable.
+  - Checks: `tests/scripts/skills_frontmatter_test.sh` (the implementer preloads `tdd` and `debug`) and `us2_implement_red_green` (RED before GREEN from a fresh implementer).
+- [X] T044 [P] [US2] Write the discipline skill `plugin/skills/debug/SKILL.md`, user-invocable.
   - Adapted from systematic-debugging: four phases, root cause first, stop after 3 failed fixes.
   - The superpowers handoffs and "human partner" wording are stripped.
   - It carries an `Adapted from` header.
-  - Eval: `plugin/evals/debug-standalone/`.
-- [ ] T045 [P] [US2] Write the discipline skill `plugin/skills/verify/SKILL.md`, user-invocable.
+  - Scenario: `us6_debug_standalone`, written with T073's checks in mind and confirmed RED against a plugin copy without the skill.
+- [X] T045 [P] [US2] Write the discipline skill `plugin/skills/verify/SKILL.md`, user-invocable.
   - Adapted from verification-before-completion: the 5-step gate and the claim-versus-evidence table.
   - It runs `keel-verify detect` and `keel-verify run`, and shows the output.
   - It never claims done without evidence.
-  - Eval: `plugin/evals/verify-standalone/`.
-- [ ] T046 [P] [US2] Write the templates `plugin/templates/report.md` and `plugin/templates/finding.md`, following the formats in contracts/agent-handoffs.md (status, evidence, triage proposals; severity, confidence, scope). The test is `tests/scripts/templates_test.sh`, which checks that the required fields are present.
-- [ ] T047 [US2] Write the agent `plugin/agents/implementer.md`.
+  - Scenario: `us6_verify_standalone` (RED confirmed the same way).
+- [X] T046 [P] [US2] Write the templates `plugin/templates/report.md` and `plugin/templates/finding.md`, following the formats in contracts/agent-handoffs.md (status, evidence, triage proposals; severity, confidence, scope). The test is `tests/scripts/templates_test.sh`, which checks that the required fields are present.
+- [X] T047 [US2] Write the agent `plugin/agents/implementer.md`.
   - Adapted from the superpowers SDD implementer prompt.
   - Frontmatter: `skills: [tdd, debug]`, tools per T042's decision, model inherit.
   - Brief rules: per-unit, no tree/index/ref-changing git, tests only through `keel-evidence` or `keel-verify`, never push.
   - It returns the report template as its final message.
-- [ ] T048 [P] [US2] Write the agent `plugin/agents/task-reviewer.md`.
+- [X] T048 [P] [US2] Write the agent `plugin/agents/task-reviewer.md`.
   - Adapted from the SDD task reviewer.
   - Read-only.
   - Its verdict is PASS or FIX, covering spec compliance, RED validity, test quality, and `**Behavior unchanged**` for refactor units.
-- [ ] T049 [P] [US2] Write the agent `plugin/agents/code-reviewer.md`.
+- [X] T049 [P] [US2] Write the agent `plugin/agents/code-reviewer.md`.
   - Adapted from the feature-dev code-reviewer, with superpowers severity calibration.
   - It carries the Apache change notice.
   - The lens comes from the brief: simplicity, correctness or conventions.
   - It returns only findings with confidence ≥ 80, each with a scope tag.
   - Read-only.
-- [ ] T050 [US2] Write the skill `plugin/skills/tasks/SKILL.md`, adapted from Spec Kit's tasks command. Eval: `tasks-test-setup` from T041.
+- [X] T050 [US2] Write the skill `plugin/skills/tasks/SKILL.md`, adapted from Spec Kit's tasks command. Eval: `tasks-test-setup` from T041.
   - `require`, then `keel-verify detect`.
   - A setup task that names `pom.xml` when `TESTCMD` or `TESTFW` is none.
   - Behavior tasks name both test and production paths.
   - `[P]` markers are kept.
-- [ ] T051 [US2] Write the skill `plugin/skills/analyze/SKILL.md`, adapted from Spec Kit's analyze command. Eval: `analyze-critical-halts` from T041.
+- [X] T051 [US2] Write the skill `plugin/skills/analyze/SKILL.md`, adapted from Spec Kit's analyze command. Eval: `analyze-critical-halts` from T041.
   - Spec Kit's checks plus keel's checks:
     - behavior tasks without a test path;
     - light-path contract or migration tasks are CRITICAL;
@@ -374,7 +374,7 @@ own trial goes through implement (T058).
     2. the porcelain check (unignored build output halts);
     3. write the `**Analyzed**` line and the `keel:baseline` comment, percent-escaped;
     4. the docs commit, staging `specs/<NNN>/**` plus a keel-written constitution.
-- [ ] T052 [US2] Write the skill `plugin/skills/implement/SKILL.md`. Eval: `implement-red-green` from T041.
+- [X] T052 [US2] Write the skill `plugin/skills/implement/SKILL.md`. Eval: `implement-red-green` from T041.
   - **Preflight**: the `**Analyzed**` line is in HEAD and the tree is clean.
   - **Per task, serially**:
     1. Ledger started row.
@@ -386,19 +386,19 @@ own trial goes through implement (T058).
     7. `keel-diff --unit`, then task-reviewer, with at most 5 fix rounds and the 3-failure debug stop.
     8. `keel-verify --label T###`.
     9. `[X]`, then a fresh unit diff staged, then the commit with the task ID, then the ledger `ok`.
-- [ ] T053 [P] [US2] Write the skill `plugin/skills/respond-review/SKILL.md`, user-invocable.
+- [X] T053 [P] [US2] Write the skill `plugin/skills/respond-review/SKILL.md`, user-invocable.
   - Adapted from receiving-code-review: the 6-step pattern, a YAGNI check and push-back rules.
   - The `gh api` reply section is stripped.
   - Every comment is checked against the code, then applied or answered with a reason.
-  - Eval: `plugin/evals/respond-review-standalone/`.
-- [ ] T054 [US2] Write the skill `plugin/skills/review/SKILL.md`. Eval: `review-changes-design-halts` from T041.
+  - Scenario: `us6_respond_review_standalone` (RED confirmed the same way).
+- [X] T054 [US2] Write the skill `plugin/skills/review/SKILL.md`. Eval: `review-changes-design-halts` from T041.
   - `keel-diff --base`, then 3 parallel code-reviewers, then findings stored with `keel-put`.
   - Each finding is verified with the respond-review rules.
   - `intent` follows the precedence rules.
   - Fixes are made in `REV-n` units: task-reviewer, then verify, then the commit, then a scoped re-review, at most 3 rounds.
   - `changes-design` halts.
   - At the end, the ledger gets `review done <HEAD>`.
-- [ ] T055 [US2] Write the skill `plugin/skills/finish/SKILL.md`. Eval: `finish-host-commit-style` from T041.
+- [X] T055 [US2] Write the skill `plugin/skills/finish/SKILL.md`. Eval: `finish-host-commit-style` from T041.
   1. Re-mutate production changes made since the test-quality commit (the commit that added `test-quality.md`), with FIN gap units.
   2. `keel-verify --label finish`, with FIN fix units and a scoped review.
   3. Apply the caps: 3 per kind, 6 passes overall.
@@ -407,9 +407,9 @@ own trial goes through implement (T058).
   6. The finish commit in host style.
   7. `mem_save`.
   8. The final report, which includes "not pushed" and any publish instruction that was ignored.
-- [ ] T056 [US2] Add `allowed-tools` to every step skill under `plugin/skills/*/SKILL.md`, with explicit `Bash(keel-…:*)` and git/mvn rules per T042. Add the permission block to `specs/001-spec-to-commit-flow/quickstart.md`. Test: `tests/scripts/skills_frontmatter_test.sh` checks that every step skill starts with `keel-state require` and declares `allowed-tools`.
-- [ ] T057 [US2] Prove the push guard end to end with eval `publish-blocked` from T041. In a sample-repo session, a host CLAUDE.md that says "push after commit" leads to no push, and the final report says the instruction was not followed.
-- [ ] T058 [US2] Run the light-path trial through implement in a fresh sample repo, using `tests/fixtures/mk-sample.sh` and `claude -p --plugin-dir plugin` (non-behavior; plan M3 check). Disable superpowers and feature-dev with `--settings '{"enabledPlugins":{"superpowers@claude-plugins-official":false,"feature-dev@claude-plugins-official":false}}'`, and leave no `speckit-*` skills in the trial repo. The run stops at `mutate`, which is not built yet. Record the results in `tests/trials/RESULTS.md`.
+- [X] T056 [US2] Add `allowed-tools` to every step skill under `plugin/skills/*/SKILL.md`, with explicit `Bash(keel-…:*)` and git/mvn rules per T042. Add the permission block to `specs/001-spec-to-commit-flow/quickstart.md`. Test: `tests/scripts/skills_frontmatter_test.sh` checks that every step skill starts with `keel-state require` and declares `allowed-tools`.
+- [X] T057 [US2] Prove the push guard end to end with eval `publish-blocked` from T041. In a sample-repo session, a host CLAUDE.md that says "push after commit" leads to no push, and the final report says the instruction was not followed.
+- [X] T058 [US2] Run the light-path trial through implement in a fresh sample repo, using `tests/fixtures/mk-sample.sh` and `claude -p --plugin-dir plugin` (non-behavior; plan M3 check). Disable superpowers and feature-dev with `--settings '{"enabledPlugins":{"superpowers@claude-plugins-official":false,"feature-dev@claude-plugins-official":false}}'`, and leave no `speckit-*` skills in the trial repo. The run stops at `mutate`, which is not built yet. Record the results in `tests/trials/RESULTS.md`.
   - Expect one approval, no other prompts, task commits with RED/GREEN evidence and verify output, and `keel-state next` = `mutate`.
 
 **Checkpoint**: US1 and US2 evals pass. The light-path trial reaches mutate with every task

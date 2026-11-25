@@ -2,6 +2,7 @@
 name: run
 description: Start or resume a keel feature run. It takes a plain-language feature description through constitution, specify, clarify (Gate 1), plan (Gate 2), tasks, analyze, implement, mutate, review and finish, ending in local commits on a feature branch. It never pushes. Use it for "/keel:run <description>", "/keel:run" (resume), or "/keel:run NNN".
 argument-hint: "<feature description> | (empty to resume) | NNN"
+allowed-tools: Read, Grep, Glob, Skill, Bash(keel-state:*), Bash(keel-branch:*), Bash(git log:*), Bash(git status:*)
 ---
 
 <!-- keel-authored orchestrator (plan.md §Run control). State is derived by keel-state; this skill

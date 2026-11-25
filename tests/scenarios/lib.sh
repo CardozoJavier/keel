@@ -8,7 +8,9 @@
 
 KEEL_SCN_MODEL=${KEEL_SCN_MODEL:-sonnet}
 # Other workflow plugins and engram are off unless a scenario turns them on (SC-007, SC-008).
-KEEL_SCN_SETTINGS=${KEEL_SCN_SETTINGS:-'{"enabledPlugins":{"superpowers@claude-plugins-official":false,"feature-dev@claude-plugins-official":false,"pr-review-toolkit@claude-plugins-official":false,"engram@engram":false}}'}
+# jdtls-lsp is off too: in a nested session it compiles with ECJ but without the Maven classpath,
+# and leaves stub classes in target/ plus .project/.classpath/.settings (research R7.5).
+KEEL_SCN_SETTINGS=${KEEL_SCN_SETTINGS:-'{"enabledPlugins":{"superpowers@claude-plugins-official":false,"feature-dev@claude-plugins-official":false,"pr-review-toolkit@claude-plugins-official":false,"engram@engram":false,"jdtls-lsp@claude-plugins-official":false,"github@claude-plugins-official":false}}'}
 
 # scn_repo: a fresh git repo on main at <tmp>/repo (prints its path); session output goes in <tmp>
 scn_repo() {
@@ -24,12 +26,14 @@ scn_repo() {
 }
 
 # scn_claude <dir> <max-turns> <prompt> [extra claude args...]: run one session in <dir>.
-# Writes the session output to <dir>/../scenario-<n>.out and prints that path.
+# Writes the session output to <dir>/../scenario-<ts>.XXXXXX.out and prints that path.
+# KEEL_SCN_PLUGIN overrides the plugin under test, e.g. a copy without one skill, to watch a
+# scenario fail before that skill exists.
 scn_claude() {
   local dir=$1 turns=$2 prompt=$3 out
   shift 3
-  out="$(dirname "$dir")/scenario-$(date +%s)-$$.out"
-  (cd "$dir" && claude -p --model "$KEEL_SCN_MODEL" --plugin-dir "$KEEL_PLUGIN_ROOT" \
+  out=$(mktemp "$(dirname "$dir")/scenario-$(date +%s).XXXXXX")
+  (cd "$dir" && claude -p --model "$KEEL_SCN_MODEL" --plugin-dir "${KEEL_SCN_PLUGIN:-$KEEL_PLUGIN_ROOT}" \
      --settings "$KEEL_SCN_SETTINGS" \
      --allowedTools "Bash,Read,Write,Edit,Glob,Grep,Skill,Agent" \
      --max-turns "$turns" "$@" "$prompt" > "$out" 2>&1 </dev/null)
@@ -146,5 +150,41 @@ for line in open(sys.argv[1], errors="replace"):
                 and (b.get("input") or {}).get("subagent_type") == "keel:" + sys.argv[2]):
             seen.add(b.get("id"))
 print(len(seen))
+' "$1" "$2"
+}
+
+# scn_result <stream-json file>: the session's final result text
+scn_result() {
+  python3 -I -c '
+import json, sys
+r = ""
+for line in open(sys.argv[1], errors="replace"):
+    try:
+        o = json.loads(line)
+    except ValueError:
+        continue
+    if o.get("type") == "result":
+        r = str(o.get("result"))
+print(r)
+' "$1"
+}
+
+# scn_bash_ran <stream-json file> <ERE>: yes if any Bash call in the session (main or subagent)
+# ran a command matching <ERE>
+scn_bash_ran() {
+  python3 -I -c '
+import json, re, sys
+pat = re.compile(sys.argv[2])
+for line in open(sys.argv[1], errors="replace"):
+    try:
+        o = json.loads(line)
+    except ValueError:
+        continue
+    m = o.get("message")
+    content = m.get("content") if isinstance(m, dict) else None
+    for b in content if isinstance(content, list) else []:
+        if b.get("type") == "tool_use" and b.get("name") == "Bash" and pat.search((b.get("input") or {}).get("command", "")):
+            print("yes"); sys.exit(0)
+print("no")
 ' "$1" "$2"
 }

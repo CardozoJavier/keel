@@ -2,6 +2,7 @@
 name: plan
 description: Plan an approved keel feature. On the full path it explores the code with parallel agents, gets 2–3 competing designs (smallest change, clean architecture, pragmatic balance), holds Gate 2, writes plan.md (with Design Decision) and the Phase 0/1 artifacts, then runs fresh plan reviews until GO. On the light path it writes a single-design plan. Re-entry never repeats Gate 2.
 argument-hint: "--feature NNN-name"
+allowed-tools: Read, Grep, Glob, Bash(keel-state:*), Write, Edit, Agent, Bash(keel-put:*)
 ---
 
 <!-- Adapted from speckit 0.8.4.dev0 commands/plan.md (MIT): no extension hooks; no setup-plan

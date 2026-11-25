@@ -190,7 +190,16 @@ keel-evidence check <feature> <unit>  → exit 0 or exit 3 with MISSING=<…>; a
 keel-verify run <feature> --label <baseline|T###|MUT-n|REV-n|FIN-n|test-quality|finish> -- <build-and-test command…>
             → runs it, tees verify/<label>.log, writes verify/<label>.failing (sorted failing test IDs parsed from
               surefire/failsafe XML reports under */target/*-reports/), prints RESULT=pass|fail FAILING=<n> NEW=<n>
+keel-verify record <feature> --setup <T###|none>
+            → writes the **Analyzed** line and the keel:baseline comment (data-model.md §3) into tasks.md, right after
+              its title, from the last passing baseline; RECORDED=<path>, or exit 3 MISSING=baseline|tasks
 ```
+
+- **`record`** is how analyze writes its evidence, so the model never escapes values by hand:
+  - It reads `baseline.result` (`build=`, `tests=`), which exists only after a **passing**
+    baseline, plus `baseline.cmd` and `baseline.failing`.
+  - It applies the `%2D`/`%25` escaping.
+  - It replaces any earlier `**Analyzed**` line and comment, so it is idempotent.
 
 - **The command**: comes from the skill. Host instructions win (VII); otherwise it is detected:
   - `./mvnw verify` or `mvn verify` from the reactor root;
@@ -229,8 +238,13 @@ keel-verify run <feature> --label <baseline|T###|MUT-n|REV-n|FIN-n|test-quality|
   - **No reports**: `RESULT=pass TESTS=none`.
   - **No build**: `RESULT=pass BUILD=none TESTS=none`.
   - The output is shown either way.
+- **`MISSING=test-reports`** (research R7.5): for any label, a Maven run with test sources
+  (`src/test/**` with a `.java`, `.kt`, `.groovy` or `.scala` extension) that compiled but
+  produced no fresh reports gives `RESULT=fail` and exit 1, with a hint to clean the build output.
+  "No tests yet" (`TESTS=none` passing) applies only when there are no test sources.
 - **`MISSING=test-command`**: exit 3 **only** when the label is a behavior task (`--kind
-  behavior`) and no test command can be detected or is defined by the host. It never fires at
+  behavior`), the repository has no test sources, and no test command can be detected or is
+  defined by the host. It never fires at
   baseline, at non-behavior tasks (including the test-setup task) or at finish.
 - **Interface additions**:
   - `keel-verify run … --kind behavior|non-behavior` (from `keel-diff --kind`). `MISSING=test-command`

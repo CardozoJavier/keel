@@ -2,6 +2,7 @@
 name: specify
 description: Write a keel feature specification (specs/NNN-name/spec.md, Spec Kit format) from a plain-language description. It first recalls related past decisions when memory is available, and asks about intent, goals, non-goals, anti-goals and missing requirements one question at a time. Used by /keel:run, or on its own.
 argument-hint: "--feature NNN-name <feature description>"
+allowed-tools: Read, Grep, Glob, Bash(keel-state:*), Write, Edit, Bash(keel-ledger:*), Bash(git rev-parse:*), Bash(git log:*)
 ---
 
 <!-- Adapted from speckit 0.8.4.dev0 commands/specify.md (MIT): no extension hooks; no

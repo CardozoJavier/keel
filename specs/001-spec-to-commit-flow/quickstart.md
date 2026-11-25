@@ -37,13 +37,20 @@ Put this in `<repo>/.claude/settings.local.json`:
       "Bash(keel-mutate:*)", "Bash(keel-classify:*)",
       "Bash(git add:*)", "Bash(git commit:*)", "Bash(git switch:*)", "Bash(git status:*)",
       "Bash(git diff:*)", "Bash(git log:*)", "Bash(git restore:*)", "Bash(git rev-parse:*)",
-      "Bash(git ls-files:*)", "Bash(git symbolic-ref:*)",
+      "Bash(git ls-files:*)", "Bash(git symbolic-ref:*)", "Bash(git show:*)",
       "Bash(mvn:*)", "Bash(./mvnw:*)"
     ]
   }
 }
 ```
 
+- **Subagents**: these allow rules also cover keel's implementer agents, whose commands are
+  `keel-evidence`, `keel-verify` and read-only git (research R7.4). A skill's `allowed-tools`
+  doesn't reach a subagent that only preloads it, so this list is what permits them.
+- **IDE metadata and build output**: ignore `target/`, `.project`, `.classpath` and `.settings/`
+  in the host repository. Java language servers (jdtls) create these files, and keel halts on
+  untracked files it can't attribute. If a language server leaves stub classes in `target/`,
+  `keel-verify` fails with `MISSING=test-reports`; run `mvn clean` and resume (research R7.5).
 - **Permission mode**: run keel sessions in `acceptEdits` or auto mode. Under that setup, the only
   prompts in a run are Gate 1, Gate 2 and clarification questions (SC-001).
 - **engram, optional**: its own protocol (session summaries, proactive saves) is unaffected by
