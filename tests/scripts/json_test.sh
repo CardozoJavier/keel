@@ -44,4 +44,10 @@ assert_eq '{"sandbox_mode": "read-only"}' "$(get_raw() { printf '%s' "$1" | keel
 big=$(printf 'echo %.0s0123456789' $(seq 1 400))
 assert_eq "$big" "$(get "{\"tool_input\":{\"command\":\"$big\"}}" tool_input.command)" "long command"
 
+# keel_json_fields: several paths in one pass (S=string, N=not a string, M=missing; \036-separated)
+f=$(printf '%s' "$J" | keel_json_fields tool_name tool_input.command nope tool_input | tr '\036' '|')
+assert_eq "SBash|Sgit status|M|N|" "$f" "keel_json_fields reports each path in order"
+printf '%s' '{"c":"x"' | keel_json_fields c >/dev/null 2>&1
+assert_eq 2 "$?" "keel_json_fields rejects invalid JSON"
+
 t_summary

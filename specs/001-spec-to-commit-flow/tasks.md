@@ -147,19 +147,19 @@ case passes.
     - `command -v git` resolves into `$KEEL_SHIMS`.
   - Failing cases: a pushurl, a longer and a tying `pushInsteadOf`, no remotes plus a file-config rule, a simulated git without config hooks, and a shim that isn't first on PATH.
   - Each failure prints `MISSING=push-guard:<what>`.
-- [ ] T017 Write layer B's shell mode in `plugin/hooks/guard-push.sh`, with tests in `tests/guard/hook/shell_test.sh` and the cases `tests/guard/hook/cases/{allow,deny,failclosed}/*.json` (test first).
+- [X] T017 Write layer B's shell mode in `plugin/hooks/guard-push.sh`, with tests in `tests/guard/hook/shell_test.sh` and the cases `tests/guard/hook/cases/{allow,deny,failclosed}/*.json` (test first).
   - Tokenizer: one awk pass, reserved words, redirections, assignments, zsh precommand modifiers, recursive `$( )`, backticks and here-document data.
   - Command-word normalization and wrapper unwrapping.
   - Rules B1–B5, W1, W2, F1 and F2, with the V1 explicit-boundary vocabulary.
   - The B2 PATH rule uses `-x` checks of prepended directories. `export PATH=$JAVA_HOME/bin:$PATH` passes, and `GIT_CONFIG_NOSYSTEM`/`GIT_CONFIG_GLOBAL` pass.
   - Exit 2 with the reason on stderr.
-- [ ] T018 Add layer B's `--github-mcp` and `--codex` modes to `plugin/hooks/guard-push.sh`, with tests in `tests/guard/hook/mcp_test.sh` (test first).
+- [X] T018 Add layer B's `--github-mcp` and `--codex` modes to `plugin/hooks/guard-push.sh`, with tests in `tests/guard/hook/mcp_test.sh` (test first).
   - GitHub MCP: allow `get_`/`list_`/`search_` and the named non-publishing writes; deny the rest.
   - Codex:
     - deny `danger-full-access`, a `config` that sets `sandbox_mode` or turns on network, and the same in a fixture `CODEX_HOME/config.toml`;
     - deny when that file is unreadable;
     - always allow `codex-reply`.
-- [ ] T019 Write `plugin/hooks/hooks.json`, with tests in `tests/guard/hooks_json_test.sh` (test first).
+- [X] T019 Write `plugin/hooks/hooks.json`, with tests in `tests/guard/hooks_json_test.sh` (test first).
   - It registers `SessionStart` → `session-env.sh`, and PreToolUse matchers `^(Bash|Monitor|PowerShell)$`, `^mcp__.*github.*__.*$`, `^mcp__codex__codex$` and `^mcp__codex__codex-reply$` → `guard-push.sh` in the right mode.
   - Every entry has `onFailure: "block"` and a 10 s timeout.
   - The test asserts the structure, the anchored matchers and that every referenced script is executable.

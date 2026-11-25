@@ -52,6 +52,7 @@ function str(  out, c, e, h, v, rest) {
 }
 function record(path, type, val, raw) {
   if (path == target) { found = 1; ftype = type; fval = val; fraw = raw }
+  if (multi && (path in want)) { mtype[path] = type; mval[path] = val }
 }
 function value(path,  c, start, v, rest) {
   ws()
@@ -106,7 +107,11 @@ function array(path,  i) {
     fail(2)
   }
 }
-BEGIN { RS = "\001" }
+BEGIN {
+  RS = "\001"
+  multi = (targets != "")
+  if (multi) { nt = split(targets, tl, "|"); for (i = 1; i <= nt; i++) want[tl[i]] = 1 }
+}
 { s = (NR == 1) ? $0 : s RS $0 }
 END {
   n = length(s)
@@ -117,6 +122,15 @@ END {
   ws()
   if (!err && pos <= n) err = 2
   if (err) exit err
+  if (multi) {
+    for (i = 1; i <= nt; i++) {
+      if (!(tl[i] in mtype)) printf "M"
+      else if (mtype[tl[i]] != "string") printf "N"
+      else printf "S%s", mval[tl[i]]
+      printf "\036"
+    }
+    exit 0
+  }
   if (!found) exit 1
   if (raw == 1) { printf "%s", fraw; exit 0 }
   if (ftype != "string") exit 3
@@ -131,4 +145,12 @@ keel_json_get() {
     shift
   fi
   LC_ALL=C awk -v target="$1" -v raw="$raw" "$KEEL_JSON_AWK"
+}
+
+# keel_json_fields <path>... < json: one validating pass for several paths. Prints, for each path
+# in order, "S<decoded string>", "N" (present but not a string) or "M" (missing), each followed by
+# \036. Exit 2 on invalid JSON. Callers must reject values containing \036 (fail closed).
+keel_json_fields() {
+  local IFS='|'
+  LC_ALL=C awk -v targets="$*" -v target="" -v raw=0 "$KEEL_JSON_AWK"
 }

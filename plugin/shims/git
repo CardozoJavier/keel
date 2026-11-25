@@ -143,6 +143,7 @@ _check() {
 _keel_argv=("$@")
 _check "$@"
 case $? in
-  0) exec "$_keel_real" "$@" ;;
+  0) [ "${KEEL_SHIM_CHECK:-}" = 1 ] && exit 0   # layer B dry run: rules only, never exec
+     exec "$_keel_real" "$@" ;;
   *) keel_shim_deny AF git "$@" ;;
 esac

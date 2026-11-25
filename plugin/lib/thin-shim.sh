@@ -36,4 +36,5 @@ case "$KEEL_THIN_TOOL $_keel_w1 $_keel_w2" in
     "glab mr create" | "glab mr merge" | "hub push "* | "hub pull-request "*)
     keel_shim_deny A7 "$KEEL_THIN_TOOL" "$@" ;;
 esac
+[ "${KEEL_SHIM_CHECK:-}" = 1 ] && exit 0   # layer B dry run: rules only, never exec
 exec "$_keel_real" "$@"
