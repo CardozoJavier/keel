@@ -3,11 +3,12 @@
 # description goes through Gate 1, Gate 2, plan review, tasks, analyze, implement, mutate, review and
 # finish, using real `claude -p --plugin-dir plugin` sessions with --continue for the gates.
 # superpowers and feature-dev are disabled (SC-007). Afterwards, Spec Kit's own prerequisite script and
-# /speckit-analyze read the result from a copy that has PayConductor's Spec Kit install (SC-006).
-# Usage: tests/trials/full_path_trial.sh <out-dir> [<speckit-host-repo>]
+# /speckit-analyze read the result from a copy with keel's own Spec Kit install (SC-006); host
+# repositories don't keep Spec Kit's scaffolding.
+# Usage: tests/trials/full_path_trial.sh <out-dir> [<speckit-host-repo, default: this keel checkout>]
 set -u
 . "$(cd "$(dirname "$0")/.." && pwd)/scenarios/lib.sh"
-out=${1:?out dir}; skhost=${2:-$HOME/dev/projects/payconductor}; mkdir -p "$out"
+out=${1:?out dir}; skhost=${2:-$KEEL_REPO_ROOT}; mkdir -p "$out"
 r=$(scn_sample); start=$(date +%s)
 [ -z "$(ls -d "$r"/.claude/skills/speckit-* 2>/dev/null)" ] || { echo "speckit skills present in the trial repo" >&2; exit 1; }
 prompt='/keel:run Prices can be discounted by a whole-number percentage from 0 to 100.
