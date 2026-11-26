@@ -1,0 +1,59 @@
+### status
+git status
+### commit message mentioning push
+git commit -m "push notifications"
+### heredoc commit message mentioning push
+git commit -m "$(cat <<'EOF'
+feat: push notifications
+
+Adds push support.
+EOF
+)"
+### stash push
+git stash push -m wip
+### rebase -x non-publishing
+git rebase -x 'mvn -q test' HEAD~3
+### search for push piped to xargs
+rg -l push | xargs sed -n 1p
+### eval ssh-agent
+eval "$(ssh-agent -s)"
+### quoted variable command word
+"$MVN" test
+### login shell build
+bash -lc 'mvn test'
+### JDK PATH prepend
+export PATH=$JAVA_HOME/bin:$PATH && mvn -q verify
+### GIT_CONFIG_NOSYSTEM
+GIT_CONFIG_NOSYSTEM=1 git status
+### gh pr view
+gh pr view 3
+### gh api GET
+gh api repos/o/r/pulls
+### curl GET
+curl -s https://api.github.com/repos/o/r/pulls
+### curl POST a comment
+curl -X POST https://api.github.com/repos/o/r/issues/1/comments -d '{"body":"x"}'
+### python without publish vocabulary
+python3 -c "print(1)"
+### echo push
+echo push
+### grep for push
+grep -r "push" src/
+### maven
+mvn -q verify
+### wrapper
+./mvnw test
+### cd then build
+cd payment-service && mvn test
+### git log grep
+git log --oneline --grep=push
+### for loop
+for f in *.java; do echo "$f"; done
+### push help
+git push --help
+### keel script
+keel-state next --feature 001-x
+### keel-put heredoc with metacharacters
+keel-put 001-x reports/T001.md <<'EOF'
+# Report: T001; status && done $(not run)
+EOF

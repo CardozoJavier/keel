@@ -1,2 +1,12 @@
 # Spec Kit local pointer to the active feature; never committed (keel data-model §3)
 .specify/feature.json
+# Build output from test fixtures (Maven samples under tests/fixtures)
+target/
+# Universal
+.DS_Store
+*.swp
+*.tmp
+.idea/
+.vscode/
+# claude plugin eval results
+plugin/evals/results/

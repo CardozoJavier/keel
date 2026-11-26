@@ -1,0 +1,266 @@
+#!/bin/bash
+# keel-mutate (contracts/mutation-runner.md §keel-mutate): mutation analysis with PIT through the
+# Maven CLI (research R5, approach B′). Never edits build files and never installs anything; raw
+# output stays under --out (keel's scratch, .git/keel/<feature>/mut/).
+#   keel-mutate --out <dir> (--base <ref|empty-tree> | --module <path>) [--classes <fqcn,…>]
+#               [--tests <fqcn,…>] [--threads <n>] [--budget <seconds>] [--maven <cmd>]
+#               [--feature <NNN-name>]
+#   → RESULT=ok MUTANTS= IN_SCOPE= NO_TEST= MUTANTS_TSV=<out>/mutants.tsv LOG=<out>/run.log
+#   exit 10 RESULT=not-run REASON=…   unsupported, or nothing to analyze
+#   exit 11 RESULT=red|flaky TESTS=…  the selected tests fail (once, or on the second run)
+#   exit 12 RESULT=tool-failure REASON=…   a fail-closed check tripped (1–5 in the contract)
+# --feature removes test classes failing at baseline (tasks.md keel:baseline) from the selection.
+set -u
+_s=$0; while [ -h "$_s" ]; do _d=$(cd -P "$(dirname "$_s")" && pwd); _s=$(readlink "$_s"); case $_s in /*) ;; *) _s=$_d/$_s ;; esac; done
+. "${KEEL_ROOT:-$(cd -P "$(dirname "$_s")/.." && pwd)}/lib/bin-preamble.sh" || exit 5
+. "$(keel_root)/lib/versions.sh" || exit 5
+. "$(keel_root)/lib/pit-xml.sh" || exit 5
+
+usage() { keel_die 1 "usage: keel-mutate --out <dir> (--base <ref> | --module <path>) [--classes <fqcn,…>] [--tests <fqcn,…>] [--threads <n>] [--budget <s>] [--maven <cmd>] [--feature <f>]"; }
+out= base= module= classes_arg= tests_arg= threads= budget=900 maven= feature=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --out) out=${2:-}; shift 2 ;;
+    --base) base=${2:-}; shift 2 ;;
+    --module) module=${2:-}; shift 2 ;;
+    --classes) classes_arg=${2:-}; shift 2 ;;
+    --tests) tests_arg=${2:-}; shift 2 ;;
+    --threads) threads=${2:-}; shift 2 ;;
+    --budget) budget=${2:-}; shift 2 ;;
+    --maven) maven=${2:-}; shift 2 ;;
+    --feature) feature=${2:-}; shift 2 ;;
+    *) usage ;;
+  esac
+done
+[ -n "$out" ] || usage
+if { [ -n "$base" ] && [ -n "$module" ]; } || [ -z "$base$module" ]; then usage; fi
+case "$budget" in '' | *[!0-9]*) usage ;; esac
+case "$out" in /*) ;; *) out="$PWD/$out" ;; esac
+root=$(keel_repo_root); cd "$root" || exit 5
+mkdir -p "$out" || exit 5
+log="$out/run.log"; : > "$log"; : > "$out/command.txt"
+TAB=$(printf '\t')
+
+finish() { local code=$1 kv; shift; for kv in "$@"; do printf '%s\n' "$kv"; done; exit "$code"; }
+not_run() { printf 'keel-mutate: not run: %s\n' "$1" >&2; finish 10 "RESULT=not-run" "REASON=$1"; }
+tool_fail() { printf 'keel-mutate: tool failure: %s\n' "$1" >&2; finish 12 "RESULT=tool-failure" "REASON=$1" "LOG=$log"; }
+
+if [ -n "$maven" ]; then read -r -a MVN <<< "$maven"
+elif [ -x ./mvnw ]; then MVN=(./mvnw)
+else MVN=(mvn); fi
+
+# --- budget watchdog (no GNU timeout on macOS): each Maven run gets its own process group, so a
+# kill also stops the forked surefire/PIT JVMs ----------------------------------------------------
+deadline=$(( $(date +%s) + budget )); budget_hit=0
+run_mvn() { # run_mvn <logfile> <maven args...>
+  local lf=$1 rem pid wd rc; shift
+  rem=$(( deadline - $(date +%s) ))
+  if [ "$rem" -le 0 ]; then budget_hit=1; return 124; fi
+  if command -v perl >/dev/null 2>&1; then
+    perl -e 'setpgrp(0, 0); exec { $ARGV[0] } @ARGV or die "exec: $!\n"' -- "${MVN[@]}" "$@" >> "$lf" 2>&1 &
+  else
+    "${MVN[@]}" "$@" >> "$lf" 2>&1 &
+  fi
+  pid=$!
+  ( while [ "$(date +%s)" -lt "$deadline" ]; do kill -0 "$pid" 2>/dev/null || exit 0; sleep 1; done
+    kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null
+    sleep 3
+    kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null ) &
+  wd=$!
+  wait "$pid"; rc=$?
+  kill "$wd" 2>/dev/null; wait "$wd" 2>/dev/null   # the watchdog subshell dies at once; its last `sleep 1` ends alone
+  if [ "$rc" -ne 0 ] && [ "$(date +%s)" -ge "$deadline" ]; then budget_hit=1; fi
+  return "$rc"
+}
+
+# --- scope ------------------------------------------------------------------------------------------
+java_re='(^|/)src/main/java/.+\.java$'
+: > "$out/changed-lines.tsv"; : > "$out/not-analyzed.txt"
+if [ -n "$base" ]; then
+  if [ "$base" = empty-tree ]; then from=$(keel_empty_tree)
+  else from=$(git rev-parse -q --verify "$base^{commit}") || keel_die 1 "unknown base: $base"; fi
+  git diff --name-only --diff-filter=AMR "$from" HEAD > "$out/changed-files.txt"
+  grep -E "$java_re" "$out/changed-files.txt" > "$out/java-files.txt" || true
+  grep -E '(^|/)src/main/' "$out/changed-files.txt" | grep -vE "$java_re" > "$out/not-analyzed.txt" || true
+  while IFS= read -r f; do
+    git diff -U0 "$from" HEAD -- "$f" | awk -v f="$f" -v OFS="$TAB" '
+      /^@@ / { split($3, p, ","); s = substr(p[1], 2); n = (p[2] == "") ? 1 : p[2] + 0; if (n > 0) print f, s, n }'
+  done < "$out/java-files.txt" >> "$out/changed-lines.tsv"
+else
+  module=${module%/}; [ -n "$module" ] || module=.
+  [ -f "$module/pom.xml" ] || not_run "not a Maven project ($module has no pom.xml)"
+  : > "$out/changed-files.txt"
+  git ls-files --cached --others --exclude-standard -- "$module" | grep -E "$java_re" > "$out/java-files.txt" || true
+fi
+[ -s "$out/java-files.txt" ] || not_run "nothing to analyze (no changed Java production class)"
+
+: > "$out/classes.tsv"   # fqcn file module
+while IFS= read -r f; do
+  rel=${f#*src/main/java/}; fq=$(printf '%s' "${rel%.java}" | tr / .)
+  d=$(dirname "$f"); mod=
+  while :; do
+    if [ -f "$d/pom.xml" ]; then mod=$d; break; fi
+    [ "$d" = . ] && break
+    d=$(dirname "$d")
+  done
+  [ -n "$mod" ] || not_run "not a Maven project ($f has no ancestor pom.xml)"
+  if [ -n "$module" ] && [ "$mod" != "$module" ]; then continue; fi
+  if [ -n "$classes_arg" ]; then case ",$classes_arg," in *",$fq,"*) ;; *) continue ;; esac; fi
+  printf '%s\t%s\t%s\n' "$fq" "$f" "$mod" >> "$out/classes.tsv"
+done < "$out/java-files.txt"
+[ -s "$out/classes.tsv" ] || not_run "nothing to analyze (no Java production class in scope)"
+
+slug() { if [ "$1" = . ]; then echo root; else printf '%s' "$1" | tr '/' '_'; fi; }
+# Module arguments (research R7.6). A submodule the root reactor can build runs as `-pl <module> -am`:
+# sibling SNAPSHOTs then come from the reactor, so nothing has to be installed. Otherwise (no root
+# reactor, or one that can't load, e.g. a broken sibling POM) it runs as `-f <module>/pom.xml`.
+# The choice is probed once per module and saved; module paths must not contain spaces.
+margs() { cat "$out/$(slug "$1")/module-args"; }
+modules=$(cut -f3 "$out/classes.tsv" | LC_ALL=C sort -u)
+
+# --- support checks per module (exit 10) --------------------------------------------------------------
+for mod in $modules; do
+  md="$out/$(slug "$mod")"; mkdir -p "$md"
+  if [ "$mod" = . ]; then echo "-f pom.xml" > "$md/module-args"
+  elif [ -f pom.xml ] && run_mvn "$md/probe.log" -q -pl "$mod" -am "$KEEL_MVN_HELP_PLUGIN:evaluate" -Dexpression=project.artifactId -DforceStdout; then
+    echo "-pl $mod -am" > "$md/module-args"
+  else
+    [ "$budget_hit" = 1 ] && tool_fail "budget of ${budget}s exceeded"
+    echo "-f $mod/pom.xml" > "$md/module-args"
+  fi
+  # test-compile first: in reactor mode a sibling's classes only exist once the reactor has compiled it
+  run_mvn "$md/tools.log" $(margs "$mod") -q test-compile "$KEEL_MVN_DEPENDENCY_PLUGIN:list" \
+    -DincludeArtifactIds=junit-platform-engine -DoutputFile="$md/deps.txt" \
+    || { [ "$budget_hit" = 1 ] && tool_fail "budget of ${budget}s exceeded"; tool_fail "resolving the test classpath of $mod failed (see $md/tools.log)"; }
+  v=$(grep -oE 'junit-platform-engine:jar:[^: ]+' "$md/deps.txt" 2>/dev/null | head -1 | cut -d: -f3)
+  [ -n "$v" ] || not_run "JUnit Platform not found; v1 supports JUnit 5/Platform only ($mod)"
+  printf '%s\n' "$v" > "$md/platform-version"
+  run_mvn "$md/tools.log" $(margs "$mod") -q "$KEEL_MVN_HELP_PLUGIN:effective-pom" -Doutput="$md/effective-pom.xml" \
+    || tool_fail "computing the effective POM of $mod failed (see $md/tools.log)"
+  if grep -q '<artifactId>pitest-maven</artifactId>' "$md/effective-pom.xml" 2>/dev/null; then
+    not_run "host configures PIT; run the host's own PIT configuration ($mod)"
+  fi
+done
+
+# --- test selection (unit tests only) -------------------------------------------------------------------
+: > "$out/excluded-tests.txt"; : > "$out/selection.tsv"
+failing_classes=
+if [ -n "$feature" ] && [ -f "specs/$feature/tasks.md" ]; then
+  failing_classes=$(awk '/<!-- keel:baseline/ { f = 1; next } f && /-->/ { f = 0 } f && /^failing: / { sub(/^failing: /, ""); gsub(/%2D/, "-"); gsub(/%25/, "%"); sub(/#.*/, ""); print }' "specs/$feature/tasks.md" | LC_ALL=C sort -u)
+fi
+it_annot='@([A-Za-z0-9_.]*\.)?(SpringBootTest|Testcontainers|QuarkusTest|QuarkusIntegrationTest|DataJpaTest|WebMvcTest)([^A-Za-z0-9_]|$)'
+while IFS="$TAB" read -r fq f mod; do
+  if [ -n "$tests_arg" ]; then sel=$tests_arg
+  else
+    simple=${fq##*.}
+    tdir="$mod/src/test/java"; [ "$mod" = . ] && tdir=src/test/java
+    cands=$( {
+      git ls-files --cached --others --exclude-standard -- "$tdir" | grep -E "/(${simple}Test|${simple}Tests)\.java$"
+      grep -E "(^|/)${tdir#./}/.+\.java$" "$out/changed-files.txt"
+      git ls-files --cached --others --exclude-standard -- "$tdir" | grep '\.java$' | while IFS= read -r tf; do
+        grep -qE "(^|[^A-Za-z0-9_\$])${simple}([^A-Za-z0-9_]|\$)" "$tf" 2>/dev/null && printf '%s\n' "$tf"
+      done
+    } | LC_ALL=C sort -u)
+    sel=
+    for tf in $cands; do
+      [ -f "$tf" ] || continue
+      tfq=${tf#*src/test/java/}; tfq=$(printf '%s' "${tfq%.java}" | tr / .); tname=${tfq##*.}
+      case "$tname" in *IT | *IntegrationTest | *E2E) printf '%s\texcluded: integration test (name)\n' "$tfq" >> "$out/excluded-tests.txt"; continue ;; esac
+      if grep -qE "$it_annot" "$tf"; then printf '%s\texcluded: integration test (annotation)\n' "$tfq" >> "$out/excluded-tests.txt"; continue; fi
+      if printf '%s\n' "$failing_classes" | grep -qxF "$tfq"; then printf '%s\texcluded: failing at baseline\n' "$tfq" >> "$out/excluded-tests.txt"; continue; fi
+      sel="$sel${sel:+,}$tfq"
+    done
+  fi
+  printf '%s\t%s\t%s\t%s\n' "$fq" "$f" "$mod" "$sel" >> "$out/selection.tsv"
+done < "$out/classes.tsv"
+sort -u -o "$out/excluded-tests.txt" "$out/excluded-tests.txt"
+
+# --- per module: red/flaky check, tools, PIT, fail-closed checks -----------------------------------------
+: > "$out/rows.tsv"; ran_pit=0
+for mod in $modules; do
+  md="$out/$(slug "$mod")"
+  union=$(awk -F'\t' -v m="$mod" '$3 == m && $4 != "" { n = split($4, a, ","); for (i = 1; i <= n; i++) print a[i] }' "$out/selection.tsv" | LC_ALL=C sort -u | paste -sd, -)
+  [ -n "$union" ] || continue
+  targets=$(awk -F'\t' -v m="$mod" '$3 == m && $4 != "" { printf "%s%s,%s$*", (n++ ? "," : ""), $1, $1 }' "$out/selection.tsv")
+  for attempt in 1 2; do
+    if ! run_mvn "$md/test.log" $(margs "$mod") test -Dtest="$union" -Dsurefire.failIfNoSpecifiedTests=false; then
+      [ "$budget_hit" = 1 ] && tool_fail "budget of ${budget}s exceeded"
+      cat "$md/test.log" >> "$log"
+      if [ "$attempt" = 1 ]; then finish 11 "RESULT=red" "TESTS=$union" "LOG=$md/test.log"; fi
+      finish 11 "RESULT=flaky" "TESTS=$union" "LOG=$md/test.log"
+    fi
+  done
+  v=$(cat "$md/platform-version")
+  : > "$md/localrepo.txt"
+  run_mvn "$md/localrepo.txt" $(margs "$mod") -q "$KEEL_MVN_HELP_PLUGIN:evaluate" -Dexpression=settings.localRepository -DforceStdout \
+    || tool_fail "locating the local Maven repository failed"
+  lr=$(grep -E '^/' "$md/localrepo.txt" | tail -1)
+  [ -d "$lr" ] || tool_fail "no local Maven repository at '$lr'"
+  run_mvn "$md/tools.log" $(margs "$mod") -q "$KEEL_MVN_DEPENDENCY_PLUGIN:get" -Dartifact="org.junit.platform:junit-platform-launcher:$v" \
+    || tool_fail "fetching junit-platform-launcher $v failed (see $md/tools.log)"
+  run_mvn "$md/tools.log" $(margs "$mod") -q "$KEEL_MVN_DEPENDENCY_PLUGIN:get" -Dartifact="$KEEL_PIT_JUNIT5_ARTIFACT" \
+    || tool_fail "fetching the PIT JUnit 5 plugin failed (see $md/tools.log)"
+  lj="$lr/org/junit/platform/junit-platform-launcher/$v/junit-platform-launcher-$v.jar"
+  pj="$lr/org/pitest/pitest-junit5-plugin/$KEEL_PIT_JUNIT5_VERSION/pitest-junit5-plugin-$KEEL_PIT_JUNIT5_VERSION.jar"
+  [ -f "$lj" ] && [ -f "$pj" ] || tool_fail "tool jars not found after download ($lj, $pj)"
+
+  set -- $(margs "$mod") test-compile "$KEEL_PIT_PLUGIN:mutationCoverage" \
+    -DtargetClasses="$targets" -DtargetTests="$union" \
+    -DoutputFormats=XML -DfullMutationMatrix=true -DtimestampedReports=false \
+    -DreportsDirectory="$md/pit" -DadditionalClasspathElements="$pj,$lj"
+  [ -n "$threads" ] && set -- "$@" -Dthreads="$threads"
+  case "$(margs "$mod")" in -pl*) set -- "$@" -DfailWhenNoMutations=false ;; esac
+  printf '%s %s\n' "${MVN[*]}" "$*" >> "$out/command.txt"; ran_pit=1
+  rm -rf "$md/pit"; : > "$md/pit.log"
+  run_mvn "$md/pit.log" "$@"; rc=$?
+  cat "$md/pit.log" >> "$log"
+  [ "$budget_hit" = 1 ] && tool_fail "budget of ${budget}s exceeded (check 5)"
+  [ "$rc" -eq 0 ] && [ -f "$md/pit/mutations.xml" ] || tool_fail "PIT failed (exit $rc) or wrote no mutations.xml in $mod (check 1)"
+  grep -q 'pitest junit 5 plugin is not installed' "$md/pit.log" && tool_fail "the PIT JUnit 5 plugin is not active in $mod (check 2)"
+  keel_pit_rows "$md/pit/mutations.xml" > "$md/rows.tsv" || tool_fail "malformed mutations.xml in $mod"
+  silent=0
+  if grep -q 'Ran 0 tests' "$md/pit.log" || ! grep -q 'Largest test (' "$md/pit.log"; then silent=1; fi
+  for cls in $(awk -F'\t' -v m="$mod" '$3 == m && $4 != "" { print $1 }' "$out/selection.tsv"); do
+    cov=$(awk -F'\t' -v c="$cls" '$1 == c || index($1, c "$") == 1 { n++; if ($10 != "") k++ } END { printf "%d %d", n, k }' "$md/rows.tsv")
+    if [ "${cov% *}" -gt 0 ] && [ "${cov#* }" -eq 0 ] && [ "$silent" = 1 ]; then
+      tool_fail "silent false negative in $cls: tests were selected but no mutant is covered and no test ran (check 3)"
+    fi
+  done
+  bad=$(awk -F'\t' '{ n++ } $7 == "NON_VIABLE" { nv++ } $7 == "RUN_ERROR" { re++ } END { v = n - nv; print (v > 0 && re * 10 > v) ? 1 : 0 }' "$md/rows.tsv")
+  [ "$bad" = 1 ] && tool_fail "RUN_ERROR affects more than 10% of viable mutants in $mod (check 4)"
+  cat "$md/rows.tsv" >> "$out/rows.tsv"
+done
+
+[ "$ran_pit" = 1 ] || printf '# PIT not run: no unit test was selected for any class in scope (see selection.tsv)\n' >> "$out/command.txt"
+
+# --- mutants.tsv: rows with stable keys and scope, plus NO_TEST rows -----------------------------------------
+mode=feature; [ -n "$module" ] && mode=audit
+awk -F'\t' -v OFS="$TAB" -v mode="$mode" '
+  FILENAME == ARGV[1] { file[$1] = $2; next }                                  # classes.tsv
+  FILENAME == ARGV[2] { r[$1] = r[$1] " " $2 "+" $3; next }                    # changed-lines.tsv
+  FILENAME == ARGV[3] {                                                        # selection.tsv
+    if ($4 != "") next
+    if (mode == "audit") { print $1 "|NO_TEST|" $2 ":0+0", $1, "-", 0, "-", "NO_TEST", "yes", "", ""; next }
+    k = split(r[$2], rr, " ")
+    for (i = 1; i <= k; i++) { split(rr[i], p, "+"); print $1 "|NO_TEST|" $2 ":" p[1] "+" p[2], $1, "-", p[1], "-", "NO_TEST", "yes", "", "" }
+    next
+  }
+  {                                                                            # rows.tsv
+    outer = $1; sub(/\$.*/, "", outer)
+    scope = "no"
+    if (mode == "audit") scope = "yes"
+    else { k = split(r[file[outer]], rr, " "); for (i = 1; i <= k; i++) { split(rr[i], p, "+"); if ($6 + 0 >= p[1] + 0 && $6 + 0 < p[1] + p[2]) scope = "yes" } }
+    print $1 "|" $2 "|" $3 "|" $4 "|" $5, $1, $2, $6, $4, $7, scope, $8, $9
+  }' "$out/classes.tsv" "$out/changed-lines.tsv" "$out/selection.tsv" "$out/rows.tsv" > "$out/keyed.tsv"
+{
+  printf 'key\tclass\tmethod\tline\tmutator\tstatus\tin_scope\tkilling\tsucceeding\n'
+  while IFS= read -r line; do
+    ki=${line%%"$TAB"*}; rest=${line#*"$TAB"}
+    printf '%s\t%s\n' "$(printf '%s' "$ki" | git hash-object --stdin)" "$rest"
+  done < "$out/keyed.tsv"
+} > "$out/mutants.tsv"
+
+n=$(awk 'END { print NR - 1 }' "$out/mutants.tsv")
+inscope=$(awk -F'\t' 'NR > 1 && $7 == "yes"' "$out/mutants.tsv" | grep -c . || true)
+notest=$(awk -F'\t' 'NR > 1 && $6 == "NO_TEST"' "$out/mutants.tsv" | grep -c . || true)
+finish 0 "RESULT=ok" "MUTANTS=$n" "IN_SCOPE=$inscope" "NO_TEST=$notest" "MUTANTS_TSV=$out/mutants.tsv" "LOG=$log" "COMMAND=$out/command.txt"

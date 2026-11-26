@@ -1,0 +1,190 @@
+#!/bin/bash
+# keel-state (data-model.md §2, contracts/run-state.md): derives a feature run's next step from its
+# Spec Kit artifacts, git history and the ledger. State is derived, never stored.
+#   keel-state next    [--feature <f>]  → STEP= FEATURE= PATH= BASE= WHY=
+#   keel-state require <step> [--feature <f>]   → exit 0, or exit 3 with MISSING=
+#   keel-state facts   [--feature <f>]  → "<row> done|todo|skipped <evidence>" lines
+#   keel-state guard                    → the push guard self-check only (standalone skills)
+#   keel-state recover --feature <f>    → interrupted work-unit recovery (data-model.md §5)
+# next = the earlier of (a) the step after the furthest row holding, read from finish downward,
+# and (b) the first missing gate prerequisite. Drift exits 4; a missing guard exits 5.
+set -u
+_s=$0; while [ -h "$_s" ]; do _d=$(cd -P "$(dirname "$_s")" && pwd); _s=$(readlink "$_s"); case $_s in /*) ;; *) _s=$_d/$_s ;; esac; done
+. "${KEEL_ROOT:-$(cd -P "$(dirname "$_s")/.." && pwd)}/lib/bin-preamble.sh" || exit 5
+. "$(keel_root)/lib/units.sh" || exit 5
+. "$(keel_root)/lib/guard-check.sh" || exit 5
+LEDGER="$(keel_root)/bin/keel-ledger"
+STEPS="constitution specify clarify plan plan-review tasks analyze implement mutate review finish done"
+
+sub=${1:-}; shift 2>/dev/null || true
+want_step=
+[ "$sub" = "require" ] && { want_step=${1:-}; shift 2>/dev/null || true; }
+feature=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --feature) feature=${2:-}; shift 2 ;;
+    *) keel_die 1 "unexpected argument: $1" ;;
+  esac
+done
+case "$sub" in next | require | facts | guard | recover) ;; *) keel_die 1 "usage: keel-state next|require <step>|facts|guard|recover [--feature <f>]" ;; esac
+
+root=$(keel_repo_root); cd "$root" || exit 5
+keel_guard_check || exit 5
+[ "$sub" = "guard" ] && exit 0
+
+# ---- feature binding ----------------------------------------------------------------------------
+fj=.specify/feature.json
+from_json() { [ -f "$fj" ] && sed -n 's/.*"feature_directory"[[:space:]]*:[[:space:]]*"specs\/\([^"]*\)".*/\1/p' "$fj" | head -1; }
+if [ -n "$feature" ]; then
+  keel_feature_ok "$feature" || keel_die 1 "invalid feature name: $feature"
+  if [ "$(from_json)" != "$feature" ] && [ "$sub" != "facts" ]; then
+    mkdir -p .specify
+    printf '{"feature_directory": "specs/%s"}\n' "$feature" > "$fj"
+  fi
+else
+  feature=$(from_json)
+  if [ -z "$feature" ]; then
+    b=$(git symbolic-ref -q --short HEAD 2>/dev/null)
+    case "$b" in [0-9][0-9][0-9]-*) feature=$b ;; esac
+  fi
+fi
+
+if [ "$sub" = "recover" ]; then
+  [ -n "$feature" ] || keel_die 1 "recover needs --feature"
+  . "$(keel_root)/lib/recover.sh" || exit 5
+  keel_recover "$feature"
+  exit $?
+fi
+
+fdir="specs/$feature"
+spec="$fdir/spec.md"; plan="$fdir/plan.md"; tasks="$fdir/tasks.md"
+
+# ---- evidence rows -----------------------------------------------------------------------------
+head_file() { git show "HEAD:$1" 2>/dev/null; }
+has_line() { grep -q -- "$1" "$2" 2>/dev/null; }
+row_constitution() {
+  local c=.specify/memory/constitution.md
+  [ -f "$c" ] && ! grep -qE '\[[A-Z][A-Z_]{2,}\]' "$c"
+}
+row_specify() { [ -n "$feature" ] && [ -f "$spec" ]; }
+row_clarify() { grep -qE '^\*\*Status\*\*: (Approved \(Gate 1|Implemented)' "$spec" 2>/dev/null; }
+spec_path() { sed -n 's/^\*\*Path\*\*: *\([a-z]*\).*/\1/p' "$spec" 2>/dev/null | head -1; }
+row_plan() { has_line '^## Design Decision' "$plan" && has_line '^\*\*Chosen\*\*:' "$plan" && has_line '^\*\*Plan status\*\*: complete' "$plan"; }
+row_plan_review() {
+  [ "$(spec_path)" = "light" ] && { row_plan; return; }
+  [ -f "$plan" ] || return 1
+  awk '/^## Plan Review/{ r = 1; next } r && /^## /{ r = 0 } r && /^\*\*Verdict\*\*:/{ v = $0 } END { exit !(v ~ /^\*\*Verdict\*\*: GO( |$)/) }' "$plan"
+}
+row_tasks() { grep -qE '^- \[[ xX]\] T[0-9]{3}' "$tasks" 2>/dev/null; }
+row_analyze() { head_file "$tasks" | grep -q '^\*\*Analyzed\*\*:'; }
+log_subjects() {
+  local b=$BASE
+  if [ "$b" = "$(keel_empty_tree)" ] || ! git rev-parse -q --verify "$b^{commit}" >/dev/null 2>&1; then git log --format=%s 2>/dev/null
+  else git log --format=%s "$b..HEAD" 2>/dev/null; fi
+}
+DRIFT=
+row_implement() {
+  local t ids checked subjects id ok=1 n=0
+  t=$(head_file "$tasks") || return 1
+  subjects=$(log_subjects)
+  for id in $(printf '%s\n' "$t" | sed -n 's/^- \[[ xX]\] \(T[0-9][0-9][0-9]\).*/\1/p'); do
+    n=$((n + 1))
+    if printf '%s\n' "$t" | grep -qE "^- \[[xX]\] $id( |$)"; then
+      printf '%s\n' "$subjects" | LC_ALL=C grep -qE "(^|[^A-Za-z0-9])$id([^A-Za-z0-9-]|\$)" || { DRIFT="$id marked done without a commit"; ok=0; }
+    else
+      printf '%s\n' "$subjects" | LC_ALL=C grep -qE "(^|[^A-Za-z0-9])$id([^A-Za-z0-9-]|\$)" && DRIFT="$id committed but unchecked in tasks.md"
+      ok=0
+    fi
+  done
+  [ "$n" -gt 0 ] && [ "$ok" -eq 1 ]
+}
+row_mutate() { head_file "$fdir/test-quality.md" | grep -qE '^\*\*Result\*\*: (resolved|not-run)'; }
+row_review() {
+  local sha c s
+  sha=$("$LEDGER" rows "$feature" 2>/dev/null | awk -F'\t' '$2 == "review" && $3 == "done" && $5 == "" { s = $4 } END { print s }')
+  [ -n "$sha" ] || return 1
+  [ "$(git rev-parse HEAD 2>/dev/null)" = "$sha" ] && return 0
+  git merge-base --is-ancestor "$sha" HEAD 2>/dev/null || return 1
+  for c in $(git rev-list "$sha..HEAD"); do
+    s=$(git log -1 --format=%s "$c")
+    printf '%s\n' "$s" | LC_ALL=C grep -qE '(^|[^A-Za-z0-9])FIN-[0-9]+([^A-Za-z0-9-]|$)' || return 1
+  done
+  return 0
+}
+row_finish() { head_file "$spec" | grep -q '^\*\*Status\*\*: Implemented'; }
+
+# ---- base ---------------------------------------------------------------------------------------
+BASE=$("$LEDGER" last "$feature" branch 2>/dev/null | awk -F'\t' '{ print $4 }')
+if [ -z "$BASE" ] && [ -f "$spec" ]; then BASE=$(sed -n 's/^\*\*Base\*\*: *\([0-9a-f]\{7,40\}\).*/\1/p' "$spec" | head -1); fi
+if [ -z "$BASE" ]; then
+  d=$("$(keel_root)/bin/keel-branch" default 2>/dev/null | sed 's/^DEFAULT=//')
+  BASE=$(git merge-base HEAD "$d" 2>/dev/null) || BASE=
+fi
+[ -n "$BASE" ] || BASE=$(keel_empty_tree)
+
+emit() { # <step> <why>
+  keel_emit STEP "$1"; keel_emit FEATURE "$feature"; keel_emit PATH "${path_kind:-unknown}"; keel_emit BASE "$BASE"; keel_emit WHY "$2"
+}
+halt() { emit halted "$1"; exit 4; }
+idx() { local i=0 s; for s in $STEPS; do [ "$s" = "$1" ] && { echo $i; return; }; i=$((i + 1)); done; echo 99; }
+
+# ---- no feature --------------------------------------------------------------------------------
+if [ -z "$feature" ]; then
+  path_kind=unknown
+  if ! row_constitution; then next=constitution; why="no constitution (or placeholders left)"
+  else next=specify; why="no feature yet"; fi
+  case "$sub" in
+    next) emit "$next" "$why"; exit 0 ;;
+    require) [ "$(idx "$want_step")" -le "$(idx "$next")" ] && exit 0; echo "MISSING=$why"; exit 3 ;;
+    facts) echo "constitution $(row_constitution && echo done || echo todo)"; exit 0 ;;
+  esac
+fi
+if [ -f "$spec" ] && ! grep -q '^\*\*Base\*\*:' "$spec"; then halt "not-a-keel-feature"; fi
+path_kind=$(spec_path); [ -n "$path_kind" ] || path_kind=unknown
+if row_clarify && [ "$path_kind" = unknown ]; then halt "drift: spec is Approved but has no Path line"; fi
+
+# ---- furthest row, from finish downward ------------------------------------------------------------
+progress=constitution why="no constitution"
+if row_finish; then progress=done why="spec Implemented in HEAD"
+elif row_review; then progress=finish why="review done"
+elif row_mutate; then progress=review why="test-quality.md committed"
+elif row_implement; then progress=mutate why="all tasks committed"
+elif row_analyze; then progress=implement why="tasks.md Analyzed in HEAD"
+elif row_tasks; then progress=analyze why="tasks.md exists"
+elif row_plan_review && row_plan; then progress=tasks why="plan reviewed (or light path)"
+elif row_plan; then progress=plan-review why="plan complete"
+elif row_clarify; then progress=plan why="spec approved (Gate 1)"
+elif row_specify; then progress=clarify why="spec written, not approved"
+elif row_constitution; then progress=specify why="constitution in place"
+fi
+[ "$progress" = done ] && { [ "$sub" = next ] && { emit done "$why"; exit 0; }; }
+
+# drift found while evaluating rows below the furthest one
+[ -n "$DRIFT" ] && [ "$(idx "$progress")" -ge "$(idx implement)" ] && halt "drift: $DRIFT"
+if [ -f "$plan" ] && has_line '^## Design Decision' "$plan" && ! row_clarify; then halt "drift: a design decision exists but the spec is not approved (Gate 1)"; fi
+
+# ---- gate candidate --------------------------------------------------------------------------------
+gate=done gwhy=
+if ! row_constitution; then gate=constitution gwhy="constitution missing"
+elif ! row_specify; then gate=specify gwhy="spec missing"
+elif ! row_clarify; then gate=clarify gwhy="spec not approved (Gate 1)"
+elif ! row_plan; then gate=plan gwhy="plan not complete"
+elif [ "$path_kind" != light ] && ! row_plan_review; then gate=plan-review gwhy="no plan-review GO"
+fi
+next=$progress
+if [ "$(idx "$gate")" -lt "$(idx "$progress")" ]; then next=$gate; why=$gwhy; fi
+
+case "$sub" in
+  next) emit "$next" "$why"; exit 0 ;;
+  require)
+    [ -n "$want_step" ] || keel_die 1 "require needs a step"
+    if [ "$(idx "$want_step")" -le "$(idx "$next")" ]; then exit 0; fi
+    echo "MISSING=$why (next step is $next)"; exit 3 ;;
+  facts)
+    f_row() { if "$2"; then echo "$1 done"; else echo "$1 todo"; fi; }
+    f_row constitution row_constitution; f_row specify row_specify; f_row clarify row_clarify; f_row plan row_plan
+    if [ "$path_kind" = light ]; then echo "plan-review skipped (light path)"; else f_row plan-review row_plan_review; fi
+    f_row tasks row_tasks; f_row analyze row_analyze; f_row implement row_implement; f_row mutate row_mutate
+    f_row review row_review; f_row finish row_finish
+    exit 0 ;;
+esac

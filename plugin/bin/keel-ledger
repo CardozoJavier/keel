@@ -1,0 +1,42 @@
+#!/bin/bash
+# keel-ledger: append-only run ledger, .git/keel/<feature>/ledger.tsv (contracts/run-state.md).
+#   keel-ledger append <feature> <step> <status> <ref> [detail...]
+#   keel-ledger last   <feature> <step> [<unit>]      → the last matching row, or exit 3
+#   keel-ledger rows   <feature>                       → all rows (empty when there is no ledger)
+# Rows: ts<TAB>step<TAB>status<TAB>ref<TAB>detail. Unit rows carry "<unit> <intent> <paths>" (start)
+# or "<unit> [reason]" (close) as detail; step rows ("done") carry no unit.
+set -u
+_s=$0; while [ -h "$_s" ]; do _d=$(cd -P "$(dirname "$_s")" && pwd); _s=$(readlink "$_s"); case $_s in /*) ;; *) _s=$_d/$_s ;; esac; done
+. "${KEEL_ROOT:-$(cd -P "$(dirname "$_s")/.." && pwd)}/lib/bin-preamble.sh" || exit 5
+
+usage() { keel_die 1 "usage: keel-ledger append <feature> <step> <status> <ref> [detail...] | last <feature> <step> [unit] | rows <feature>"; }
+TAB=$(printf '\t')
+cmd=${1:-}; feature=${2:-}
+[ -n "$cmd" ] && [ -n "$feature" ] || usage
+keel_feature_ok "$feature" || keel_die 1 "invalid feature name: $feature"
+file="$(keel_scratch "$feature")/ledger.tsv"
+
+case "$cmd" in
+  append)
+    [ $# -ge 5 ] || usage
+    step=$3; status=$4; ref=$5; shift 5
+    case "$status" in started | ok | halted | abandoned | done | drift) ;; *) keel_die 1 "invalid status: $status" ;; esac
+    detail="$*"
+    for v in "$step" "$ref" "$detail"; do
+      case "$v" in *"$TAB"* | *$'\n'*) keel_die 1 "ledger fields must not contain tabs or newlines" ;; esac
+    done
+    printf '%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$step" "$status" "$ref" "$detail" >> "$file"
+    ;;
+  last)
+    [ $# -ge 3 ] || usage
+    step=$3; unit=${4:-}
+    [ -f "$file" ] || exit 3
+    row=$(awk -F'\t' -v s="$step" -v u="$unit" '$2 == s { split($5, d, " "); if (u == "" || d[1] == u) last = $0 } END { if (last != "") print last }' "$file")
+    [ -n "$row" ] || exit 3
+    printf '%s\n' "$row"
+    ;;
+  rows)
+    [ -f "$file" ] && cat "$file"
+    exit 0 ;;
+  *) usage ;;
+esac

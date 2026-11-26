@@ -1,0 +1,109 @@
+#!/bin/bash
+# keel-brief <feature> <unit> [--from <path>] → BRIEF=<.git/keel/<feature>/briefs/<unit>.md>
+# Builds a work unit's implementer brief from plugin/templates/brief.md (contracts/agent-handoffs.md).
+#   T###: the tasks.md line and phase, its story's acceptance scenarios, the FRs it names, and design
+#         excerpts (plan, data model, contracts, research) that mention its files.
+#   MUT-n / REV-n / FIN-n: --from points to the scratch file that motivates the unit (classification
+#         rows, verified findings, verify log); FRs named there are included.
+# Exit 3 for an unknown task or a non-task unit without --from.
+set -u
+_s=$0; while [ -h "$_s" ]; do _d=$(cd -P "$(dirname "$_s")" && pwd); _s=$(readlink "$_s"); case $_s in /*) ;; *) _s=$_d/$_s ;; esac; done
+. "${KEEL_ROOT:-$(cd -P "$(dirname "$_s")/.." && pwd)}/lib/bin-preamble.sh" || exit 5
+. "$(keel_root)/lib/units.sh" || exit 5
+
+feature=${1:-}; unit=${2:-}; from=
+[ "${3:-}" = "--from" ] && from=${4:-}
+keel_feature_ok "$feature" && [ -n "$unit" ] || keel_die 1 "usage: keel-brief <feature> <unit> [--from <path>]"
+case "$unit" in *[!A-Za-z0-9-]*) keel_die 1 "invalid unit: $unit" ;; esac
+root=$(keel_repo_root); cd "$root" || exit 5
+fdir="specs/$feature"
+scratch=$(keel_scratch "$feature")
+
+intent=$(keel_unit_intent "$feature" "$unit" 2>/dev/null); [ -n "$intent" ] || intent=n/a
+base=$(keel_unit_base "$feature" "$unit" 2>/dev/null); [ -n "$base" ] || base=$(git rev-parse -q --verify HEAD 2>/dev/null || keel_empty_tree)
+lpaths=$(keel_unit_paths "$feature" "$unit" 2>/dev/null | paste -sd, - 2>/dev/null)
+
+story=- task= desc= kind= refs_src=
+case "$unit" in
+  T[0-9][0-9][0-9])
+    [ -f "$fdir/tasks.md" ] || { echo "MISSING=tasks.md"; keel_die 3 "keel-brief: no $fdir/tasks.md"; }
+    line=$(grep -E "^- \[[ xX]\] $unit( |$)" "$fdir/tasks.md" | head -1)
+    [ -n "$line" ] || { echo "MISSING=task:$unit"; keel_die 3 "keel-brief: $unit is not in tasks.md"; }
+    phase=$(awk -v id="$unit" '/^## /{ h = $0 } index($0, "] " id " ") || index($0, "] " id "\n") { print h; exit }' "$fdir/tasks.md")
+    task=$(printf '%s\n\n%s' "${phase:-}" "$line")
+    desc=$(printf '%s' "$line" | sed -E "s/^- \[[ xX]\] $unit //; s/^\[P\] //; s/^\[US[0-9]+\] //")
+    story=$(printf '%s' "$line" | grep -oE '\[US[0-9]+\]' | head -1 | tr -d '[]'); [ -n "$story" ] || story=-
+    refs_src=$line
+    paths=$(printf '%s' "$line" | grep -oE '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.{}$-]+)+' | sed 's/[),.]$//')
+    kind=non-behavior
+    for p in $paths; do [ "$(keel_path_kind "$p")" = production ] && { kind=behavior; break; }; done
+    [ -n "$lpaths" ] || lpaths=$(printf '%s\n' $paths | paste -sd, - 2>/dev/null)
+    ;;
+  MUT-[0-9]* | REV-[0-9]* | FIN-[0-9]* | FINISH)
+    [ -n "$from" ] && [ -r "$from" ] || { echo "MISSING=from"; keel_die 3 "keel-brief: $unit needs --from <file>"; }
+    task=$(cat "$from")
+    desc="(from $(basename "$from"))"
+    refs_src=$task
+    paths=$(printf '%s' "$task" | grep -oE '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+' | sort -u)
+    case "$intent" in fix | refactor) kind=$intent ;; *) kind=non-behavior ;; esac
+    ;;
+  *) keel_die 1 "invalid unit: $unit" ;;
+esac
+
+# story acceptance scenarios and referenced FRs, from spec.md
+reqs=
+if [ -f "$fdir/spec.md" ]; then
+  if [ "$story" != "-" ]; then
+    n=${story#US}
+    scen=$(awk -v n="$n" '
+      /^### User Story / { inside = ($0 ~ "^### User Story " n " ") ; acc = 0; next }
+      inside && /\*\*Acceptance Scenarios\*\*/ { acc = 1; print; next }
+      inside && acc && (/^---/ || /^### /) { exit }
+      inside && acc { print }' "$fdir/spec.md")
+    [ -n "$scen" ] && reqs=$(printf '%s\n\n%s' "$reqs" "$scen")
+  fi
+  for fr in $(printf '%s' "$refs_src" | grep -oE 'FR-[0-9]{3}' | sort -u); do
+    t=$(awk -v fr="$fr" 'index($0, "**" fr "**") == 3 || index($0, "**" fr "**") == 1 { p = 1; print; next } p && /^  / { print; next } { p = 0 }' "$fdir/spec.md")
+    [ -n "$t" ] && reqs=$(printf '%s\n%s' "$reqs" "$t")
+  done
+fi
+reqs=${reqs#$'\n'}; reqs=${reqs#$'\n'}
+[ -n "$reqs" ] || reqs="(none found: read spec.md for this unit's requirements)"
+
+# design excerpts mentioning the unit's files
+design=
+for p in ${paths:-}; do
+  b=${p##*/}
+  [ -n "$b" ] || continue
+  for d in "$fdir/plan.md" "$fdir/data-model.md" "$fdir/research.md" "$fdir"/contracts/*.md; do
+    [ -f "$d" ] || continue
+    hits=$(grep -F -- "$b" "$d" 2>/dev/null | head -8)
+    [ -n "$hits" ] && design=$(printf '%s\n- %s: %s' "$design" "${d#$fdir/}" "$(printf '%s' "$hits" | sed '2,$s/^/  /')")
+  done
+done
+design=${design#$'\n'}
+[ -n "$design" ] || design="(no excerpts mention this unit's files; see plan.md)"
+
+host=
+for h in "$HOME/.claude/CLAUDE.md" "$root/CLAUDE.md" "$root/.claude/CLAUDE.md"; do
+  [ -f "$h" ] && host="$host${host:+, }$h"
+done
+[ -n "$host" ] || host="(none)"
+[ -n "$lpaths" ] || lpaths="(see the task)"
+
+tpl=$(cat "$(keel_root)/templates/brief.md") || keel_die 5 "brief template missing"
+tpl=${tpl//"{{UNIT}}"/$unit}
+tpl=${tpl//"{{FEATURE}}"/$feature}
+tpl=${tpl//"{{DESCRIPTION}}"/$desc}
+tpl=${tpl//"{{STORY}}"/$story}
+tpl=${tpl//"{{BASE}}"/$base}
+tpl=${tpl//"{{KIND}}"/$kind}
+tpl=${tpl//"{{INTENT}}"/$intent}
+tpl=${tpl//"{{TASK}}"/$task}
+tpl=${tpl//"{{REQUIREMENTS}}"/$reqs}
+tpl=${tpl//"{{DESIGN}}"/$design}
+tpl=${tpl//"{{PATHS}}"/$lpaths}
+tpl=${tpl//"{{HOST}}"/$host}
+mkdir -p "$scratch/briefs"
+printf '%s\n' "$tpl" > "$scratch/briefs/$unit.md"
+keel_emit BRIEF "$scratch/briefs/$unit.md"

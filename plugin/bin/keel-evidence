@@ -1,0 +1,97 @@
+#!/bin/bash
+# keel-evidence (contracts/run-state.md, data-model.md §7):
+#   keel-evidence run   <feature> <unit> <red|green|refactor> -- <command...>
+#       runs the command with the push guard environment (A0 + shims), tees its output to
+#       evidence/<unit>/NN-<phase>.log, appends evidence/<unit>/index.tsv
+#       (seq phase exit ts tree cmd) and exits with the command's status
+#   keel-evidence check <feature> <unit>   → exit 0, or exit 3 with MISSING=<rule>
+# Per-unit rule: behavior T### units and intent=fix units need a failing run on a tree with the
+# test but without the production change, then a passing run after a production change, and a
+# passing last run. FIN fix units may use an already-failing test as RED. Non-behavior T###,
+# refactor and gap (MUT/FIN mutation) units need no RED; their evidence is verify, review or the
+# computed kill. Whether RED failed for the right reason is task-reviewer's judgment.
+set -u
+_s=$0; while [ -h "$_s" ]; do _d=$(cd -P "$(dirname "$_s")" && pwd); _s=$(readlink "$_s"); case $_s in /*) ;; *) _s=$_d/$_s ;; esac; done
+. "${KEEL_ROOT:-$(cd -P "$(dirname "$_s")/.." && pwd)}/lib/bin-preamble.sh" || exit 5
+. "$(keel_root)/lib/units.sh" || exit 5
+
+cmd=${1:-}; feature=${2:-}; unit=${3:-}
+[ -n "$cmd" ] && [ -n "$unit" ] || keel_die 1 "usage: keel-evidence run <feature> <unit> <phase> -- <cmd...> | check <feature> <unit>"
+keel_feature_ok "$feature" || keel_die 1 "invalid feature name: $feature"
+case "$unit" in *[!A-Za-z0-9-]*) keel_die 1 "invalid unit: $unit" ;; esac
+root=$(keel_repo_root); cd "$root" || exit 5
+scratch=$(keel_scratch "$feature")
+dir="$scratch/evidence/$unit"
+base=$(keel_unit_base "$feature" "$unit")
+[ -n "$base" ] || { echo "MISSING=unit:$unit"; keel_die 3 "keel-evidence: no started ledger row for $unit"; }
+seed=$base
+git rev-parse -q --verify "$base^{tree}" >/dev/null 2>&1 || seed=EMPTY
+
+case "$cmd" in
+  run)
+    phase=${4:-}
+    case "$phase" in red | green | refactor) ;; *) keel_die 1 "phase must be red, green or refactor" ;; esac
+    [ "${5:-}" = "--" ] || keel_die 1 "usage: keel-evidence run <feature> <unit> <phase> -- <cmd...>"
+    shift 5
+    [ $# -gt 0 ] || keel_die 1 "no command to run"
+    mkdir -p "$dir"
+    n=0
+    [ -f "$dir/index.tsv" ] && n=$(wc -l < "$dir/index.tsv" | tr -d ' ')
+    seq=$(printf '%02d' $((n + 1)))
+    tree=$(keel_worktree_tree "$seed" "$scratch") || keel_die 5 "cannot snapshot the working tree"
+    log="$dir/$seq-$phase.log"
+    export KEEL_ROOT
+    KEEL_ROOT=$(keel_root)
+    . "$KEEL_ROOT/hooks/keel-env.sh"
+    "$@" 2>&1 | tee "$log"
+    rc=${PIPESTATUS[0]}
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$seq" "$phase" "$rc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$tree" "$*" >> "$dir/index.tsv"
+    exit "$rc" ;;
+  check) ;;
+  *) keel_die 1 "usage: keel-evidence run|check …" ;;
+esac
+
+miss() { echo "MISSING=$1"; keel_die 3 "keel-evidence: $unit: $2"; }
+intent=$(keel_unit_intent "$feature" "$unit")
+case "$unit" in MUT-*) intent=gap ;; esac
+case "$intent" in
+  gap) echo "NOTE=evidence for $unit is the computed kill (keel-classify)"; exit 0 ;;
+  refactor) echo "NOTE=refactor unit: task-reviewer must confirm behavior is unchanged"; exit 0 ;;
+esac
+if [ "$intent" != "fix" ]; then
+  kind=$("$(keel_root)/bin/keel-diff" "$feature" --kind "$unit" | sed -n 's/^KIND=//p')
+  [ "$kind" = "behavior" ] || { echo "NOTE=non-behavior unit: evidence is keel-verify"; exit 0; }
+fi
+[ -f "$dir/index.tsv" ] || miss red-before-green "no test runs recorded"
+
+# changed paths of a given kind between two trees
+changed_kind() { # <tree-a> <tree-b> <kind> → prints matching paths
+  local p
+  for p in $(git diff --name-only "$1" "$2" 2>/dev/null); do
+    [ "$(keel_path_kind "$p")" = "$3" ] && printf '%s\n' "$p"
+  done
+}
+from_tree="$base^{tree}"; [ "$seed" = EMPTY ] && from_tree=$(keel_empty_tree)
+red_tree= green_ok=0 last_rc=
+while IFS="$(printf '\t')" read -r s phase rc ts tree c; do
+  last_rc=$rc
+  if [ "$phase" = red ] && [ "$rc" != 0 ] && [ -z "$red_tree" ]; then
+    red_tree=$tree
+    continue
+  fi
+  if [ -n "$red_tree" ] && [ "$phase" = green ] && [ "$rc" = 0 ] && [ "$green_ok" -eq 0 ]; then
+    green_tree=$tree
+    green_ok=1
+  fi
+done < "$dir/index.tsv"
+[ -n "$red_tree" ] && [ "$green_ok" -eq 1 ] || miss red-before-green "needs a failing run followed by a passing green run"
+[ -z "$(changed_kind "$from_tree" "$red_tree" production)" ] || miss red-production-unchanged "the failing run already had production changes"
+if [ -z "$(changed_kind "$from_tree" "$red_tree" test)" ]; then
+  case "$unit:$intent" in
+    FIN-*:fix) ;;   # an already-failing test may serve as RED
+    *) miss red-test-added "the failing run had no new or changed test" ;;
+  esac
+fi
+[ -n "$(changed_kind "$red_tree" "$green_tree" production)" ] || miss green-production-change "no production change between RED and GREEN"
+[ "$last_rc" = 0 ] || miss final-green "the last recorded run failed"
+exit 0

@@ -1,0 +1,6 @@
+#!/bin/bash
+# keel-shim: never resolve to this file as the real binary
+# keel push guard, layer A: thin sl shim (rule A7); see plugin/lib/thin-shim.sh.
+KEEL_THIN_TOOL=sl
+case "$0" in */*) _d=${0%/*} ;; *) _d=. ;; esac
+. "$(cd -P "$_d" && pwd)/../lib/thin-shim.sh" || { echo "keel: blocked publish (AF): thin-shim library missing" >&2; exit 2; }

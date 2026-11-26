@@ -1,0 +1,70 @@
+#!/bin/bash
+# keel-diff (contracts/run-state.md):
+#   keel-diff <feature> --unit <ID>   → PATCH=<diffs/ID.patch> FILES=<diffs/ID.files> COMMITTED=yes|no
+#        open unit: BASE's tree vs a seeded temp-index tree of the working tree (tracked + untracked,
+#        ignored and .specify/feature.json excluded); committed unit: BASE..<its commit>
+#   keel-diff <feature> --base        → PATCH=<review/diff.patch> FILES=<review/files.txt> (base..HEAD, two-dot)
+#   keel-diff <feature> --kind <ID>   → KIND=behavior|non-behavior (behavior = touches production paths)
+# The real index is never touched.
+set -u
+_s=$0; while [ -h "$_s" ]; do _d=$(cd -P "$(dirname "$_s")" && pwd); _s=$(readlink "$_s"); case $_s in /*) ;; *) _s=$_d/$_s ;; esac; done
+. "${KEEL_ROOT:-$(cd -P "$(dirname "$_s")/.." && pwd)}/lib/bin-preamble.sh" || exit 5
+. "$(keel_root)/lib/units.sh" || exit 5
+
+feature=${1:-}; mode=${2:-}; unit=${3:-}
+keel_feature_ok "$feature" || keel_die 1 "usage: keel-diff <feature> --unit <ID> | --base | --kind <ID>"
+root=$(keel_repo_root); cd "$root" || exit 5
+scratch=$(keel_scratch "$feature")
+
+feature_base() {
+  local b d
+  b=$("$(keel_root)/bin/keel-ledger" last "$feature" branch 2>/dev/null | awk -F'\t' '{ print $4 }')
+  if [ -n "$b" ]; then printf '%s\n' "$b"; return; fi
+  d=$("$(keel_root)/bin/keel-branch" default | sed 's/^DEFAULT=//')
+  if b=$(git merge-base HEAD "$d" 2>/dev/null) && [ -n "$b" ]; then printf '%s\n' "$b"; return; fi
+  keel_empty_tree
+}
+
+# unit_trees <ID>: sets FROM and TO trees (tree-to-tree, never the real index)
+unit_trees() {
+  local base sha seed
+  base=$(keel_unit_base "$feature" "$1")
+  [ -n "$base" ] || keel_die 3 "MISSING=unit:$1"
+  if git rev-parse -q --verify "$base^{tree}" >/dev/null 2>&1; then FROM="$base^{tree}"; seed=$base
+  else FROM=$(keel_empty_tree); seed=EMPTY; fi
+  if sha=$(keel_unit_commit "$feature" "$1"); then
+    TO="$sha^{tree}"; COMMITTED=yes
+  else
+    TO=$(keel_worktree_tree "$seed" "$scratch") || keel_die 5 "cannot build the working-tree snapshot"
+    COMMITTED=no
+  fi
+}
+
+case "$mode" in
+  --unit)
+    [ -n "$unit" ] || keel_die 1 "--unit needs a unit ID"
+    unit_trees "$unit"
+    mkdir -p "$scratch/diffs"
+    git diff --binary "$FROM" "$TO" > "$scratch/diffs/$unit.patch" || keel_die 5 "git diff failed"
+    git diff --name-status "$FROM" "$TO" > "$scratch/diffs/$unit.files"
+    keel_emit PATCH "$scratch/diffs/$unit.patch"
+    keel_emit FILES "$scratch/diffs/$unit.files"
+    keel_emit COMMITTED "$COMMITTED" ;;
+  --kind)
+    [ -n "$unit" ] || keel_die 1 "--kind needs a unit ID"
+    unit_trees "$unit"
+    kind=non-behavior
+    for p in $(git diff --name-only "$FROM" "$TO"); do
+      if [ "$(keel_path_kind "$p")" = production ]; then kind=behavior; break; fi
+    done
+    keel_emit KIND "$kind" ;;
+  --base)
+    b=$(feature_base)
+    mkdir -p "$scratch/review"
+    git diff --binary "$b" HEAD > "$scratch/review/diff.patch" || keel_die 5 "git diff failed"
+    git diff --name-status "$b" HEAD > "$scratch/review/files.txt"
+    keel_emit PATCH "$scratch/review/diff.patch"
+    keel_emit FILES "$scratch/review/files.txt"
+    keel_emit BASE "$b" ;;
+  *) keel_die 1 "usage: keel-diff <feature> --unit <ID> | --base | --kind <ID>" ;;
+esac

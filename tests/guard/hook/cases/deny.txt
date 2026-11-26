@@ -1,0 +1,118 @@
+### B1 absolute path to git
+/usr/bin/git push origin main
+### B1 absolute path to gh
+/opt/homebrew/bin/gh pr create --fill
+### B1 relative path to a tool
+./bin/git push
+### B1 xcrun bypasses PATH
+xcrun git push origin main
+### B1 env -P bypasses PATH
+env -P /usr/bin git push origin main
+### B1 zsh equals expansion
+=git push
+### B1 literal variable holding an absolute path
+G=/opt/homebrew/bin/gh; $G pr create
+### B2 command -p
+command -p git push
+### B2 env -i
+env -i git push
+### B2 env -u PATH
+env -u PATH git status
+### B2 PATH replaced for a tool
+PATH=/usr/bin git push
+### B2 PATH replaced with entries that hold no guarded tool (mutation self-check M07)
+PATH=/keel-no-such-dir git push
+### B2 PATH prepend of a dir holding git
+export PATH=/usr/bin:$PATH; gh pr create
+### B2 GIT_CONFIG_COUNT override
+GIT_CONFIG_COUNT=0 git push
+### B2 env -u GIT_CONFIG_COUNT
+env -u GIT_CONFIG_COUNT git push
+### B2 unset GIT_CONFIG_COUNT
+unset GIT_CONFIG_COUNT
+### B2 GIT_CONFIG_PARAMETERS export
+export GIT_CONFIG_PARAMETERS="'alias.x=push'"
+### B2 unset KEEL_SHIMS
+unset KEEL_SHIMS
+### B2 GIT_EXEC_PATH
+GIT_EXEC_PATH=/tmp/x git status
+### B2 hash -p
+hash -p /usr/bin/git git
+### B3 plain push
+git push
+### B3 gh pr create
+gh pr create --fill
+### B3 after cd
+cd sub && git push
+### B3 after true
+true; git push origin main
+### B3 inside if
+if true; then git push; fi
+### B3 negated
+! git push
+### B3 brace group
+{ git push; }
+### B3 leading redirection
+>/dev/null git push
+### B3 caffeinate wrapper
+caffeinate -i git push
+### B3 keel-evidence wrapper
+keel-evidence run 001-x T001 green -- git push
+### B3 nohup background
+nohup git push &
+### B3 time
+time git push
+### B3 find -exec
+find . -maxdepth 0 -exec git push \;
+### B3 xargs
+xargs git push < /dev/null
+### B3 dashed form
+git-push origin main
+### B3 sudo
+sudo -u me git push
+### B3 variable argument resolved literally
+x=push; git $x
+### B3 backslash-escaped command word
+\git push
+### B4 bash -c
+bash -c 'git push'
+### B4 zsh login shell payload
+zsh -lc 'gh pr create'
+### B4 sh -c double quoted
+sh -c "git push origin main"
+### B4 heredoc fed to bash
+bash <<'EOF'
+git push
+EOF
+### B4 rebase -x payload
+git rebase -x 'gh pr create' HEAD~1
+### B4 submodule foreach payload
+git submodule foreach 'gh pr merge 1'
+### B4 bang alias payload
+git -c alias.x='!gh pr create' x
+### B4 bisect run payload
+git bisect run gh pr create
+### B5 command substitution as command word
+$(echo git) push
+### B5 unresolved variable command word
+$TOOL push origin main
+### W1 curl POST to GitHub pulls
+curl -X POST https://api.github.com/repos/o/r/pulls -d '{"title":"x"}'
+### W1 curl data to GHE
+curl -d @body.json https://ghe.example.com/api/v3/repos/o/r/pulls
+### W1 wget post to refs
+wget --post-data=x https://api.github.com/repos/o/r/git/refs
+### W1 httpie Bitbucket PR
+http POST https://api.bitbucket.org/2.0/repositories/o/r/pullrequests title=x
+### W1 GitLab merge request
+curl -X POST https://gitlab.example.com/api/v4/projects/1/merge_requests
+### W1 smart-HTTP receive-pack
+curl -X POST https://host.example/o/r.git/git-receive-pack --data-binary @pack
+### W2 python
+python3 -c "import os; os.system('git push')"
+### W2 node
+node -e "require('child_process').execSync('git push')"
+### W2 perl
+perl -e 'system("git push")'
+### W2 osascript
+osascript -e 'do shell script "git push"'

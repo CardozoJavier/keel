@@ -1,0 +1,149 @@
+#!/bin/bash
+# keel-shim: never resolve to this file as the real binary
+# keel push guard, layer A: git shim (contracts/push-guard.md). Put first on PATH by the
+# SessionStart env file. It sees the final argv (after shell aliases, functions, variables and
+# eval), resolves git aliases with the real git, denies publishing (A1-A3) and attempts to weaken
+# layer A0 (A8), and otherwise execs the real git unchanged. Fails closed (AF) on internal errors.
+# bash 3.2; builtins preferred because it runs under the caller's PATH.
+
+case "$0" in */*) _keel_shims_dir=${0%/*} ;; *) _keel_shims_dir=. ;; esac
+_keel_shims_dir=$(cd -P "$_keel_shims_dir" && pwd) || { echo "keel: blocked publish (AF): cannot locate shim dir" >&2; exit 2; }
+. "$_keel_shims_dir/../lib/shim-common.sh" || { echo "keel: blocked publish (AF): shim library missing" >&2; exit 2; }
+
+keel_shim_enter git "$@"
+_keel_real=$(keel_shim_real git "$_keel_shims_dir") || exit 127
+
+# _lc <string>: lowercase ASCII without tr (bash 3.2 has no ${s,,}).
+_lc() {
+  local s=$1 out= c i=0
+  while [ "$i" -lt "${#s}" ]; do
+    c=${s:$i:1}
+    case "$c" in
+      A) c=a ;; B) c=b ;; C) c=c ;; D) c=d ;; E) c=e ;; F) c=f ;; G) c=g ;; H) c=h ;; I) c=i ;;
+      J) c=j ;; K) c=k ;; L) c=l ;; M) c=m ;; N) c=n ;; O) c=o ;; P) c=p ;; Q) c=q ;; R) c=r ;;
+      S) c=s ;; T) c=t ;; U) c=u ;; V) c=v ;; W) c=w ;; X) c=x ;; Y) c=y ;; Z) c=z ;;
+    esac
+    out=$out$c
+    i=$((i + 1))
+  done
+  printf '%s' "$out"
+}
+
+# _protected_key <config-key>: keys whose change could weaken layer A0 (rule A8).
+_protected_key() {
+  case "$(_lc "$1")" in
+    url.*.pushinsteadof | url.*.insteadof | remote.*.pushurl | hook.* | include.* | includeif.* | core.hookspath) return 0 ;;
+  esac
+  return 1
+}
+
+KEEL_GIT_BUILTINS=
+. "$_keel_shims_dir/../lib/git-builtins.sh" 2>/dev/null
+_is_builtin() {
+  [ -n "$KEEL_GIT_BUILTINS" ] || return 2
+  case "$KEEL_GIT_BUILTINS" in *" $1 "*) return 0 ;; esac
+  return 1
+}
+
+# _check <argv...>: parse global options, resolve aliases, apply the rules.
+# Returns 0 to allow; denies (exit 2) directly; returns 3 on an internal problem (fail closed).
+_check() {
+  local depth=0 gopts=() a sub val key word rest
+  while :; do
+    # --- global options (collected for alias resolution, checked for A8) ---
+    while [ $# -gt 0 ]; do
+      a=$1
+      case "$a" in
+        -C | --git-dir | --work-tree | --namespace | --attr-source)
+          [ $# -ge 2 ] || return 0
+          gopts+=("$a" "$2"); shift 2 ;;
+        -c)
+          [ $# -ge 2 ] || return 0
+          key=${2%%=*}
+          _protected_key "$key" && keel_shim_deny A8 git "${_keel_argv[@]}"
+          gopts+=("$a" "$2"); shift 2 ;;
+        --config-env)
+          [ $# -ge 2 ] || return 0
+          key=${2%%=*}
+          _protected_key "$key" && keel_shim_deny A8 git "${_keel_argv[@]}"
+          gopts+=("$a" "$2"); shift 2 ;;
+        --config-env=*)
+          val=${a#--config-env=}; key=${val%%=*}
+          _protected_key "$key" && keel_shim_deny A8 git "${_keel_argv[@]}"
+          gopts+=("$a"); shift ;;
+        --git-dir=* | --work-tree=* | --namespace=* | --exec-path=* | --attr-source=* | --list-cmds=*)
+          gopts+=("$a"); shift ;;
+        --exec-path | --html-path | --man-path | --info-path | --version | -v | --help | -h)
+          return 0 ;;
+        -P | --no-pager | -p | --paginate | --bare | --no-replace-objects | --literal-pathspecs | \
+          --glob-pathspecs | --noglob-pathspecs | --icase-pathspecs | --no-optional-locks | \
+          --no-advice | --no-lazy-fetch)
+          gopts+=("$a"); shift ;;
+        -*) return 0 ;;   # unknown global option: real git rejects it, nothing can run
+        *) break ;;
+      esac
+    done
+    [ $# -gt 0 ] || return 0
+    sub=$1
+    shift
+
+    _is_builtin "$sub"
+    case $? in
+      0) break ;;
+      2) return 3 ;;
+    esac
+    # not a builtin: an alias (resolved with the same options and environment) or an external command
+    depth=$((depth + 1))
+    [ "$depth" -le 5 ] || return 3
+    val=$("$_keel_real" ${gopts[@]+"${gopts[@]}"} config --get "alias.$sub" 2>/dev/null)
+    case $? in
+      0) ;;
+      1) break ;;            # no alias: external git-<sub> (its own git calls hit A0/A) or unknown
+      *) return 3 ;;
+    esac
+    case "$val" in
+      '!'*) return 0 ;;      # shell alias: inner git runs under git's exec-path, covered by A0
+    esac
+    # expand the alias (word-split as git does for simple aliases; no globbing) and re-check
+    set -f
+    # shellcheck disable=SC2086
+    set -- $val "$@"
+    set +f
+  done
+
+  # --- rules on the resolved subcommand ---
+  case "$sub" in
+    push | send-pack | http-push | send-email | imap-send)
+      case "$*" in --help | -h) return 0 ;; esac
+      keel_shim_deny A1 git "${_keel_argv[@]}" ;;
+    svn)
+      for word in "$@"; do case "$word" in -*) ;; dcommit | set-tree) keel_shim_deny A2 git "${_keel_argv[@]}" ;; *) break ;; esac; done ;;
+    p4)
+      for word in "$@"; do case "$word" in -*) ;; submit) keel_shim_deny A2 git "${_keel_argv[@]}" ;; *) break ;; esac; done ;;
+    lfs | subtree)
+      for word in "$@"; do case "$word" in -*) ;; push) keel_shim_deny A2 git "${_keel_argv[@]}" ;; *) break ;; esac; done ;;
+    remote-* | receive-pack)
+      keel_shim_deny A3 git "${_keel_argv[@]}" ;;
+    config)
+      local readonly_op=0 hit=0
+      for word in "$@"; do
+        case "$word" in
+          --get | --get-all | --get-regexp | --get-urlmatch | --get-color | --get-colorbool | -l | --list | get | list | --show-origin | --show-scope | --name-only | -e | --edit | edit) readonly_op=1 ;;
+        esac
+        case "$word" in -*) ;; *) _protected_key "${word%%=*}" && hit=1 ;; esac
+      done
+      case "$*" in *--edit* | *" -e"* | "edit "* | edit) hit=1; readonly_op=0 ;; esac
+      [ "$hit" -eq 1 ] && [ "$readonly_op" -eq 0 ] && keel_shim_deny A8 git "${_keel_argv[@]}" ;;
+    remote)
+      case " $* " in *" set-url "*"--push"*) keel_shim_deny A8 git "${_keel_argv[@]}" ;; esac ;;
+  esac
+  return 0
+}
+
+_keel_argv=("$@")
+_check "$@"
+case $? in
+  0) [ "${KEEL_SHIM_CHECK:-}" = 1 ] && exit 0   # layer B dry run: rules only, never exec
+     exec "$_keel_real" "$@" ;;
+  *) keel_shim_deny AF git "$@" ;;
+esac

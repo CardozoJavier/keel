@@ -1,0 +1,57 @@
+#!/bin/bash
+# keel-plan-round <feature> <N> (FR-010, contracts/run-state.md): renders the plan-review round the
+# reviewer stored itself (<scratch>/plan-review/round-<N>.md, through keel-put) into
+# specs/<feature>/plan.md's `## Plan Review`, from templates/plan-review.md, and prints
+# VERDICT=GO|NO_GO. The reviewer's output goes in byte for byte, so the orchestrator never retypes
+# it; the orchestrator fills in the round's **Dispositions** afterwards.
+#   - A recorded round already in plan.md is left as it is (its dispositions may be filled in).
+#   - The plan template's placeholder round (`### Round N ([DATE])`) is replaced.
+#   - The reviewer's own `## ` headings sit inside <details> and don't end the section.
+# Exit 3: MISSING=round (nothing stored), MISSING=verdict (no GO/NO_GO under `## 4. Verdict`),
+# MISSING=plan.
+set -u
+_s=$0; while [ -h "$_s" ]; do _d=$(cd -P "$(dirname "$_s")" && pwd); _s=$(readlink "$_s"); case $_s in /*) ;; *) _s=$_d/$_s ;; esac; done
+. "${KEEL_ROOT:-$(cd -P "$(dirname "$_s")/.." && pwd)}/lib/bin-preamble.sh" || exit 5
+
+feature=${1:-}; n=${2:-}
+keel_feature_ok "$feature" || keel_die 1 "invalid feature name: $feature"
+case "$n" in '' | *[!0-9]*) keel_die 1 "usage: keel-plan-round <feature> <N>" ;; esac
+root=$(keel_repo_root); cd "$root" || exit 5
+plan="specs/$feature/plan.md"
+src="$(keel_scratch "$feature")/plan-review/round-$n.md"
+[ -f "$src" ] || { echo "MISSING=round"; keel_die 3 "no stored round $n: the plan reviewer stores it with keel-put $feature plan-review/round-$n.md"; }
+[ -f "$plan" ] || { echo "MISSING=plan"; keel_die 3 "no $plan"; }
+
+verdict=$(LC_ALL=C awk '/^## 4\. Verdict/ { f = 1; next } f && NF { v = $1; sub(/:$/, "", v); print v; exit }' "$src")
+case "$verdict" in GO | NO_GO) ;; *) echo "MISSING=verdict"; keel_die 3 "round $n has no GO or NO_GO verdict under '## 4. Verdict'" ;; esac
+
+if LC_ALL=C grep -qE "^### Round $n \\([0-9]{4}-" "$plan"; then keel_emit VERDICT "$verdict"; exit 0; fi
+
+blk=$(mktemp "$(keel_scratch "$feature")/tmp.XXXXXX")
+tmp=$(mktemp "$(keel_scratch "$feature")/tmp.XXXXXX")
+trap 'rm -f "$blk" "$tmp"' EXIT
+LC_ALL=C awk -v n="$n" -v d="$(date +%Y-%m-%d)" -v v="$verdict" -v src="$src" '
+  /\{\{BLOCKER\}\}/ { next }
+  /^\{\{OUTPUT\}\}$/ { while ((getline l < src) > 0) print l; close(src); next }
+  { gsub(/\{\{N\}\}/, n); gsub(/\{\{DATE\}\}/, d); gsub(/\{\{VERDICT\}\}/, v); print }
+' "$(keel_root)/templates/plan-review.md" > "$blk"
+
+# state: 0 before the section, 1 inside it, 2 after it
+LC_ALL=C awk -v block="$blk" '
+  function out(l) { print l; last = l }
+  function emit(   l) { if (last != "") out(""); while ((getline l < block) > 0) out(l); close(block) }
+  state == 1 && skip && (/^### Round / || /^## /) { skip = 0 }
+  state == 1 && skip { next }
+  state == 1 && /^### Round [0-9]+ \(\[DATE\]\)/ { skip = 1; next }
+  state == 1 && /^<details>/ { ind = 1 }
+  state == 1 && /^<\/details>/ { ind = 0 }
+  state == 1 && !ind && /^## / { emit(); out(""); state = 2 }
+  { out($0) }
+  state == 0 && /^## Plan Review[[:space:]]*$/ { state = 1 }
+  END {
+    if (state == 0) { if (last != "") out(""); out("## Plan Review") }
+    if (state != 2) emit()
+  }
+' "$plan" > "$tmp" || keel_die 5 "cannot render round $n"
+cat "$tmp" > "$plan"
+keel_emit VERDICT "$verdict"

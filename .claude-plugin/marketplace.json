@@ -1,0 +1,14 @@
+{
+  "name": "keel",
+  "owner": {
+    "name": "Javier Cardozo"
+  },
+  "plugins": [
+    {
+      "name": "keel",
+      "source": "./plugin",
+      "description": "Spec-driven feature delivery to local commits; never pushes."
+    }
+  ],
+  "description": "keel: spec-driven feature delivery plugin (maintainer's local marketplace)"
+}

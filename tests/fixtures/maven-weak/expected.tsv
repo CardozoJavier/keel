@@ -1,0 +1,5 @@
+kind	must-contain	weakness
+coverage-gap	weak.FeeCalculator:8	untested branch (amounts above 10,000,000)
+assertion-gap	weak.FeeCalculator:10	missing assertion (the 2% computation is never checked above the floor)
+kills-nothing	weak.FeeCalculatorTest#should_compute_fee_when_amount_is_large	missing assertion (the test covers code and kills nothing)
+overlap	weak.FeeCalculatorTest#should_charge_minimum_fee_when_amount_is_small,weak.FeeCalculatorTest#should_charge_minimum_fee_when_amount_is_tiny	duplicate tests (identical kill sets)

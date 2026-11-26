@@ -1,0 +1,111 @@
+#!/bin/bash
+# keel-classify (contracts/mutation-runner.md §keel-classify):
+#   keel-classify <mutants.tsv> [--triage specs/<NNN>/test-quality.triage.tsv] [--summary] > classification.tsv
+# --out <file> writes the rows to <file> instead of stdout (so a caller never redirects into .git).
+# --summary prints only `SUMMARY=<n> mutants (<n> in scope); killed <k>; coverage gaps <c>; assertion gaps
+# <a>; triaged <t>; excluded <x>` (test-quality.md's Summary line). NO_TEST rows are coverage gaps, not
+# mutants; when there are any, the coverage count reads `<c> (<u> with no test)`.
+# Deterministic (pure awk, LC_ALL=C) classification of keel-mutate's per-mutant table. Output rows
+# are `kind<TAB>subject<TAB>detail`, sorted by kind and then subject:
+#   coverage-gap   in scope, NO_COVERAGE or NO_TEST, not triaged     (blocking)
+#   assertion-gap  in scope, SURVIVED, not triaged                   (blocking)
+#   triaged        an in-scope gap whose key has a triage reason
+#   out-of-scope   a gap outside the feature's changed lines
+#   redundant      every mutant the test kills is also killed by another test (overlap members excluded)
+#   kills-nothing  the test ran against mutants and killed none
+#   overlap        two or more tests with identical non-empty kill sets
+#   excluded       NON_VIABLE, RUN_ERROR, TIMED_OUT, MEMORY_ERROR
+# Exit 0 when nothing blocks, 1 when any blocking row remains, 2 for malformed input.
+# Resolution is computed here, never judged by the model; only triage reasons are written by it.
+set -u
+in=${1:-}
+[ $# -gt 0 ] && shift
+triage= summary=0 outf=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --triage) triage=${2:-}; shift 2 ;;
+    --summary) summary=1; shift ;;
+    --out) outf=${2:-}; shift 2 ;;
+    *) printf 'usage: keel-classify <mutants.tsv> [--triage <file>] [--summary] [--out <file>]\n' >&2; exit 2 ;;
+  esac
+done
+[ -f "$in" ] || { printf 'keel-classify: no input: %s\n' "$in" >&2; exit 2; }
+[ -z "$triage" ] || [ -f "$triage" ] || { printf 'keel-classify: no triage file: %s\n' "$triage" >&2; exit 2; }
+
+prog='
+function emit(kind, subject, detail) { rows[++n] = kind "\t" subject "\t" detail }
+function sortjoin(list,   a, k, i, j, t, out) {
+  k = split(list, a, SUBSEP)
+  for (i = 2; i <= k; i++) { t = a[i]; for (j = i - 1; j >= 1 && a[j] > t; j--) a[j + 1] = a[j]; a[j + 1] = t }
+  out = ""
+  for (i = 1; i <= k; i++) if (a[i] != "") out = out (out == "" ? "" : ",") a[i]
+  return out
+}
+BEGIN {
+  FS = "\t"
+  HEADER = "key\tclass\tmethod\tline\tmutator\tstatus\tin_scope\tkilling\tsucceeding"
+  split("KILLED SURVIVED NO_COVERAGE NO_TEST TIMED_OUT MEMORY_ERROR RUN_ERROR NON_VIABLE", v, " ")
+  for (i in v) valid[v[i]] = 1
+  excl["NON_VIABLE"] = excl["RUN_ERROR"] = excl["TIMED_OUT"] = excl["MEMORY_ERROR"] = 1
+  if (triage != "") {
+    while ((getline line < triage) > 0) {
+      if (line == "") continue
+      t = index(line, "\t")
+      if (t < 2 || t == length(line)) { print "keel-classify: malformed triage row: " line > "/dev/stderr"; bad = 1; exit 2 }
+      reason[substr(line, 1, t - 1)] = substr(line, t + 1)
+    }
+  }
+}
+NR == 1 { if ($0 != HEADER) { print "keel-classify: unexpected header" > "/dev/stderr"; bad = 1; exit 2 }; next }
+{
+  if (NF != 9) { print "keel-classify: row " NR " has " NF " fields, not 9" > "/dev/stderr"; bad = 1; exit 2 }
+  key = $1; status = $6; scope = $7
+  if (!(status in valid)) { print "keel-classify: unknown status " status " at row " NR > "/dev/stderr"; bad = 1; exit 2 }
+  mshort = $5; sub(/.*\./, "", mshort)   # PIT mutator class name without its package
+  loc = $2 ":" $4 " " $3 " " mshort " " status
+  if (status != "NO_TEST") { gen++; if (scope == "yes") genin++ }
+  if (scope == "yes" && status == "KILLED") killed++
+  if (scope == "yes" && (status in excl)) excluded++
+  if (status in excl) emit("excluded", key, $2 ":" $4 " " status)
+  else if (status == "SURVIVED" || status == "NO_COVERAGE" || status == "NO_TEST") {
+    gap = (status == "SURVIVED") ? "assertion-gap" : "coverage-gap"
+    if (scope != "yes") emit("out-of-scope", key, loc)
+    else if (key in reason) { emit("triaged", key, reason[key] " (" loc ")"); triaged++ }
+    else { emit(gap, key, loc); blocking++; if (gap == "coverage-gap") { cov++; if (status == "NO_TEST") notest++ } else ass++ }
+  }
+  k = split($8, ka, "|")
+  for (i = 1; i <= k; i++) if (ka[i] != "") { kills[ka[i]] = kills[ka[i]] SUBSEP key; nk[ka[i]]++; killers[key] = killers[key] SUBSEP ka[i]; nkillers[key]++; tests[ka[i]] = 1 }
+  s = split($9, sa, "|")
+  for (i = 1; i <= s; i++) if (sa[i] != "") { ran[sa[i]]++; tests[sa[i]] = 1 }
+}
+END {
+  if (bad) exit 2
+  for (t in tests) if (nk[t] > 0) { sig[kills[t]] = sig[kills[t]] SUBSEP t; nsig[kills[t]]++ }
+  for (g in nsig) if (nsig[g] >= 2) {
+    emit("overlap", sortjoin(sig[g]), nsig[g] > 0 ? (split(g, tmp, SUBSEP) - 1) " identical kills" : "")
+    m = split(sig[g], mem, SUBSEP); for (i = 1; i <= m; i++) if (mem[i] != "") inoverlap[mem[i]] = 1
+  }
+  for (t in tests) {
+    if (nk[t] == 0) { if (ran[t] > 0) emit("kills-nothing", t, "ran against " ran[t] " mutants, killed none"); continue }
+    if (t in inoverlap) continue
+    all = 1; others = ""
+    m = split(kills[t], km, SUBSEP)
+    for (i = 1; i <= m; i++) {
+      if (km[i] == "") continue
+      if (nkillers[km[i]] < 2) { all = 0; break }
+      c = split(killers[km[i]], kk, SUBSEP)
+      for (j = 1; j <= c; j++) if (kk[j] != "" && kk[j] != t && !((t, kk[j]) in seen)) { seen[t, kk[j]] = 1; others = others SUBSEP kk[j] }
+    }
+    if (all) emit("redundant", t, "kills " nk[t] ", all also killed by " sortjoin(others))
+  }
+  if (summary) printf "SUMMARY=%d mutants (%d in scope); killed %d; coverage gaps %d%s; assertion gaps %d; triaged %d; excluded %d\n", gen, genin, killed, cov, (notest > 0 ? " (" notest " with no test)" : ""), ass, triaged, excluded
+  else for (i = 1; i <= n; i++) print rows[i]
+  exit (blocking > 0) ? 1 : 0
+}
+'
+if [ -n "$outf" ]; then
+  LC_ALL=C awk -v triage="$triage" -v summary="$summary" "$prog" "$in" | LC_ALL=C sort -t "$(printf '\t')" -k1,1 -k2,2 > "$outf"
+else
+  LC_ALL=C awk -v triage="$triage" -v summary="$summary" "$prog" "$in" | LC_ALL=C sort -t "$(printf '\t')" -k1,1 -k2,2
+fi
+exit "${PIPESTATUS[0]}"

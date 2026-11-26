@@ -1,0 +1,162 @@
+#!/bin/bash
+# keel-shim: never resolve to this file as the real binary
+# keel push guard, layer A: gh shim (contracts/push-guard.md, rules A4-A6). gh talks to GitHub
+# itself, so git-level A0 doesn't cover it: this shim is the primary guard for gh. It denies
+# creating, merging, reopening or updating pull requests, ref/commit/content writes through
+# `gh api` (REST and GraphQL), agents that publish on their own, and unknown subcommands
+# (extensions). Everything else execs the real gh unchanged. bash 3.2.
+
+# Commands of gh 2.92 (CORE, GITHUB ACTIONS, ADDITIONAL), checked by tests/guard/shims/gh_test.sh.
+KEEL_GH_ALLOWED=' auth browse codespace gist issue org pr project release repo skill cache run workflow agent-task alias api attestation completion config extension gpg-key label licenses preview ruleset search secret ssh-key status variable accessibility actions environment exit-codes formatting mintty reference telemetry help version '
+KEEL_GH_DENIED=' copilot '
+
+if [ "${1:-}" = "--keel-list-known" ]; then
+  printf '%s %s\n' "$KEEL_GH_ALLOWED" "$KEEL_GH_DENIED"
+  exit 0
+fi
+
+case "$0" in */*) _keel_shims_dir=${0%/*} ;; *) _keel_shims_dir=. ;; esac
+_keel_shims_dir=$(cd -P "$_keel_shims_dir" && pwd) || { echo "keel: blocked publish (AF): cannot locate shim dir" >&2; exit 2; }
+. "$_keel_shims_dir/../lib/shim-common.sh" || { echo "keel: blocked publish (AF): shim library missing" >&2; exit 2; }
+
+keel_shim_enter gh "$@"
+_keel_real=$(keel_shim_real gh "$_keel_shims_dir") || exit 127
+_keel_argv=("$@")
+
+KEEL_GH_REF_RE='^/?(api/v3/)?repos/[^/]+/[^/]+/(pulls|pulls/[0-9]+/(merge|update-branch)|git/(refs|commits|trees|blobs|tags)(/.*)?|contents/.*|merges|merge-upstream)$'
+KEEL_GH_PULL_RE='^/?(api/v3/)?repos/[^/]+/[^/]+/pulls/[0-9]+$'
+KEEL_GH_MUTATIONS='createPullRequest mergePullRequest updatePullRequestBranch revertPullRequest reopenPullRequest enqueuePullRequest enablePullRequestAutoMerge createCommitOnBranch createRef updateRef updateRefs mergeBranch'
+
+_deny() { keel_shim_deny "$1" gh "${_keel_argv[@]}"; }
+
+# _graphql_text <text>: deny when a GraphQL document names a publishing mutation.
+_graphql_text() {
+  local m
+  for m in $KEEL_GH_MUTATIONS; do
+    case "$1" in *"$m"*) _deny A5 ;; esac
+  done
+}
+
+# _api <args after "api">: rule A5.
+_api() {
+  local method= endpoint= has_fields=0 a v field_vals=() input=
+  while [ $# -gt 0 ]; do
+    a=$1
+    case "$a" in
+      -X | --method) method=${2:-}; shift 2 || shift ;;
+      -X?*) method=${a#-X}; shift ;;
+      --method=*) method=${a#--method=}; shift ;;
+      -f | -F | --field | --raw-field) has_fields=1; field_vals+=("${2:-}"); shift 2 || shift ;;
+      --field=* | --raw-field=*) has_fields=1; field_vals+=("${a#*=}"); shift ;;
+      -f?* | -F?*) has_fields=1; field_vals+=("${a#-?}"); shift ;;
+      --input) has_fields=1; input=${2:-}; shift 2 || shift ;;
+      --input=*) has_fields=1; input=${a#--input=}; shift ;;
+      -H | --header | --hostname | -q | --jq | -t | --template | -p | --preview | --cache)
+        shift 2 || shift ;;
+      -*) shift ;;
+      *) [ -z "$endpoint" ] && endpoint=$a; shift ;;
+    esac
+  done
+  [ -n "$method" ] || { [ "$has_fields" -eq 1 ] && method=POST || method=GET; }
+  case "$method" in post | put | patch | delete) method=$(printf '%s' "$method" | tr 'a-z' 'A-Z') ;; esac
+
+  if [ "$endpoint" = "graphql" ]; then
+    for v in ${field_vals[@]+"${field_vals[@]}"}; do
+      case "$v" in
+        query=@*)
+          v=${v#query=@}
+          [ -r "$v" ] || _deny A5
+          _graphql_text "$(<"$v")" ;;
+        query=*) _graphql_text "${v#query=}" ;;
+      esac
+    done
+    if [ -n "$input" ]; then
+      { [ "$input" != "-" ] && [ -r "$input" ]; } || _deny A5
+      _graphql_text "$(<"$input")"
+    fi
+    return 0
+  fi
+
+  case "$method" in GET | HEAD) return 0 ;; esac
+  [[ "$endpoint" =~ $KEEL_GH_REF_RE ]] && _deny A5
+  if [[ "$endpoint" =~ $KEEL_GH_PULL_RE ]]; then
+    for v in ${field_vals[@]+"${field_vals[@]}"}; do
+      case "$v" in state=open | state=OPEN) _deny A5 ;; esac
+    done
+    if [ -n "$input" ]; then
+      { [ "$input" != "-" ] && [ -r "$input" ]; } || _deny A5
+      case "$(<"$input")" in *'"state"'*'"open"'*) _deny A5 ;; esac
+    fi
+  fi
+  return 0
+}
+
+# _check <argv...>: rules A4-A6 after alias resolution.
+_check() {
+  local depth=0 cmd sub a val line name
+  while :; do
+    # leading repo selector, then the command
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -R | --repo) shift 2 || shift ;;
+        --repo=*) shift ;;
+        --version | --help | -h) return 0 ;;
+        *) break ;;
+      esac
+    done
+    [ $# -gt 0 ] || return 0
+    cmd=$1
+    shift
+    case "$KEEL_GH_DENIED" in *" $cmd "*) _deny A4 ;; esac
+    case "$KEEL_GH_ALLOWED" in *" $cmd "*) break ;; esac
+    # not a known command: a gh alias (resolved with the real gh), else an extension/unknown
+    depth=$((depth + 1))
+    [ "$depth" -le 5 ] || return 3
+    val=
+    while IFS= read -r line; do
+      name=${line%%:*}
+      if [ "$name" = "$cmd" ]; then
+        val=${line#*: }
+        break
+      fi
+    done <<EOF
+$("$_keel_real" alias list 2>/dev/null)
+EOF
+    [ -n "$val" ] || _deny A6
+    val=${val#\'}; val=${val%\'}
+    case "$val" in '!'*) return 0 ;; esac   # shell alias: its git/gh calls hit the shims and A0
+    set -f
+    # shellcheck disable=SC2086
+    set -- $val "$@"
+    set +f
+  done
+
+  # first non-flag word after the command
+  sub=
+  for a in "$@"; do
+    case "$a" in -*) ;; *) sub=$a; break ;; esac
+  done
+  case "$cmd" in
+    pr)
+      case "$sub" in create | new | merge | update-branch | revert | reopen | ready) _deny A4 ;; esac ;;
+    repo)
+      case "$sub" in
+        sync) _deny A4 ;;
+        create) for a in "$@"; do case "$a" in --push) _deny A4 ;; esac; done ;;
+      esac ;;
+    release)
+      [ "$sub" = "create" ] && _deny A4 ;;
+    agent-task)
+      [ "$sub" = "create" ] && _deny A4 ;;
+    api)
+      _api "$@" ;;
+  esac
+  return 0
+}
+
+_check "$@"
+case $? in
+  0) [ "${KEEL_SHIM_CHECK:-}" = 1 ] && exit 0   # layer B dry run: rules only, never exec
+     exec "$_keel_real" "$@" ;;
+  *) keel_shim_deny AF gh "$@" ;;
+esac
