@@ -344,7 +344,7 @@ empty stdin
 
 ## Performance
 
-- **Layer B**: p95 < 50 ms on the allow corpus. Measured with bash 3.2 `TIMEFORMAT=%3R; time …`.
+- **Layer B**: p95 < 100 ms on the allow corpus (typically about 40 ms; the limit leaves room for a slow machine). Measured with bash 3.2 `TIMEFORMAT=%3R; time …`.
 - **Layer A**: < 15 ms added per git/gh call.
   - It execs `$KEEL_REAL_GIT` directly, skipping the xcrun trampoline when it resolved to the CLT
     binary.

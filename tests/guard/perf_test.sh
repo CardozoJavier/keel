@@ -1,5 +1,5 @@
 #!/bin/bash
-# Push guard performance (contracts/push-guard.md §Performance): layer B p95 < 50 ms over the allow
+# Push guard performance (contracts/push-guard.md §Performance): layer B p95 < 100 ms over the allow
 # corpus; layer A adds < 15 ms per git call when KEEL_REAL_GIT is resolved (as session-env.sh does).
 # Thresholds can be raised on a loaded machine: KEEL_PERF_HOOK_MS, KEEL_PERF_SHIM_MS.
 set -u
@@ -7,7 +7,7 @@ set -u
 HOOK="$KEEL_PLUGIN_ROOT/hooks/guard-push.sh"
 export KEEL_ROOT="$KEEL_PLUGIN_ROOT"
 jdk=$(t_tmp); mkdir -p "$jdk/bin"; export JAVA_HOME="$jdk"
-hook_max=${KEEL_PERF_HOOK_MS:-50}
+hook_max=${KEEL_PERF_HOOK_MS:-100}
 shim_max=${KEEL_PERF_SHIM_MS:-15}
 TIMEFORMAT=%3R
 

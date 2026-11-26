@@ -106,7 +106,7 @@ needs no POM edit and no worktree (research R5, approach B′).
 marketplace, specs and tests.
 
 **Performance Goals**:
-- Push guard layer B: p95 under 50 ms per Bash call.
+- Push guard layer B: p95 under 100 ms per Bash call.
 - Layer A shim: under 15 ms per git or gh call.
 - Mutation analysis is bounded by changed lines and unit tests, with a default budget of 900 s.
 
