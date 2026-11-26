@@ -60,13 +60,15 @@ otherwise run `keel-state next` and use its `FEATURE=` value. `<scratch>` means
    - Each new test checks behavior traceable to an FR or acceptance scenario.
    - Where no test can observe a gap, it proposes a triage row instead:
      `<key> equivalent: <why no observable effect>` or `<key> not worth a test: <why>`.
-6. **Store the report** with `keel-put <feature> reports/MUT-n.md`.
+6. **Read the report** the implementer stored at `<scratch>/reports/MUT-n.md`. If it's missing,
+   dispatch a fresh implementer **once**; a second miss halts.
 7. **Write the triage file**: append each proposed row as `<full key><TAB><reason>` to the triage
    file. Use the full 40-character key from `gaps.tsv`. This is the only place the model writes
    anything about resolution.
 8. **Scope check**: `keel-diff <feature> --kind MUT-n` must say `KIND=non-behavior`. Otherwise
    halt, because a gap unit changed production code.
-9. **Task review**: `keel-diff <feature> --unit MUT-n`, then a fresh `keel:task-reviewer`. It
+9. **Task review**: `keel-diff <feature> --unit MUT-n`, then a fresh `keel:task-reviewer` with
+   `Store as: reviews/MUT-n-r<k>.md`. It
    rejects tests that assert implementation details only to kill a mutant. On FIX, re-dispatch
    (at most 5 rounds).
 10. **Verify**: `keel-verify run <feature> --label MUT-n --kind non-behavior -- <command>`. Show the

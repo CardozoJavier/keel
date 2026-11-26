@@ -2,7 +2,7 @@
 name: plan
 description: Plan an approved keel feature. On the full path it explores the code with parallel agents, gets 2–3 competing designs (smallest change, clean architecture, pragmatic balance), holds Gate 2, writes plan.md (with Design Decision) and the Phase 0/1 artifacts, then runs fresh plan reviews until GO. On the light path it writes a single-design plan. Re-entry never repeats Gate 2.
 argument-hint: "--feature NNN-name"
-allowed-tools: Read, Grep, Glob, Bash(keel-state:*), Write, Edit, Agent, Bash(keel-put:*)
+allowed-tools: Read, Grep, Glob, Bash(keel-state:*), Write, Edit, Agent, Bash(keel-put:*), Bash(keel-plan-round:*)
 ---
 
 <!-- Adapted from speckit 0.8.4.dev0 commands/plan.md (MIT): no extension hooks; no setup-plan
@@ -90,14 +90,17 @@ yourself does not replace them; that comes after they report.
 ## 5. Plan review (FR-010; full path only)
 
 1. **Dispatch a fresh `keel:plan-reviewer`**. Never reuse one. Give it the paths to the spec, the
-   plan, the Phase 1 artifacts and the constitution. From round 2 on, also give it every earlier
-   round's verbatim output and a disposition log (resolved, rejected or deferred, each with a
-   one-line reason).
-2. **Store the output** with
-   `keel-put <feature> plan-review/round-<N>.md <<'EOF' … EOF`.
-3. **Append it to `plan.md`** under `## Plan Review`, using the format in
-   `$KEEL_ROOT/templates/plan-review.md`: `### Round <N> (<date>)`, `**Verdict**: GO|NO_GO`, the
-   reviewer's output verbatim, then `**Dispositions**`.
+   plan, the Phase 1 artifacts and the constitution, the feature name, and
+   `Store as: plan-review/round-<N>.md`. From round 2 on, also give it the paths of every earlier
+   round's stored output (`<scratch>/plan-review/round-<k>.md`) and a disposition log (resolved,
+   rejected or deferred, each with a one-line reason).
+2. **Record the round**: run `keel-plan-round <feature> <N>`. It appends the reviewer's stored
+   output verbatim to `plan.md` under `## Plan Review` (`$KEEL_ROOT/templates/plan-review.md`) and
+   prints `VERDICT=`. Never copy the reviewer's output yourself.
+   - `MISSING=round`: the reviewer didn't store its output. Dispatch a fresh reviewer **once**; a
+     second miss halts.
+3. **Fill in `**Dispositions**`** under that round: one line per blocker (resolved, rejected or
+   deferred, with a one-line reason), or `- none`.
 4. **On NO_GO**: revise the plan and artifacts for each blocker, record each disposition, and go
    back to step 1 of this section.
 5. **On the third round with the same blocker**: escalate. Present the blocker and ask the

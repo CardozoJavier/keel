@@ -58,7 +58,13 @@ keel-state recover --feature <f>            → RECOVERED=<unit>|closed:<unit>|d
 ```text
 keel-branch ensure <NNN-name>  → BRANCH=<name> BASE=<sha|empty-tree> CREATED=<yes|no>
 keel-branch next-number        → NNN = 1 + max(specs/NNN-* dirs, local NNN-* branch names)
+keel-branch stage-docs <feature> → STAGED=<path> per path; exit 3 MISSING=specs
 ```
+
+- **stage-docs** (the analyze step's docs commit): stages exactly `specs/<feature>`, plus
+  `.specify/memory/constitution.md` when a ledger `files done` row says keel wrote it. It never
+  stages `.specify/feature.json` and unstages it if it was staged: committing that pointer puts a
+  "current feature" file on every feature branch, and two branches then conflict on it.
 
 - **When it runs**: in `run` it comes right after `keel-state recover`; in the standalone
   `constitution` it runs first. Either way it runs before keel writes anything.
@@ -127,9 +133,26 @@ keel-put --audit <relpath>                   → the same under .git/keel/audit/
 - **Step-completion rows**: `keel-ledger append <f> <step> done <sha>`, with no unit field. Only
   these count as step evidence (e.g. `review done <sha>`, written after the last `REV-n` commit).
   Unit closures never count.
-- `keel-put` is how the orchestrator stores agent output (reports, reviews, plan-review rounds,
-  triage). The content goes in a here-document (`keel-put 001-x reports/T003.md <<'EOF' … EOF`),
-  so no redirect into `.git` appears in the command.
+- `keel-put` is how agent output reaches scratch. Reviewers and the implementer run it themselves
+  for their reports, reviews and plan-review rounds (agent-handoffs.md); the orchestrator runs it
+  only for its own files (verified findings, gap lists). The content goes in a here-document
+  (`keel-put 001-x reports/T003.md <<'KEEL_EOF' … KEEL_EOF`), so no redirect into `.git` appears in
+  the command.
+
+## `keel-plan-round`
+
+```text
+keel-plan-round <feature> <N>  → VERDICT=GO|NO_GO; exit 3 MISSING=round|verdict|plan
+```
+
+- Renders `<scratch>/plan-review/round-<N>.md`, which the plan reviewer stored, into
+  `specs/<feature>/plan.md` under `## Plan Review`, from `templates/plan-review.md`. The output goes
+  in byte for byte inside `<details>`. The orchestrator then fills in the round's
+  `**Dispositions**`.
+- A recorded round already in `plan.md` is left as it is. The plan template's placeholder round
+  (`### Round N ([DATE])`) is replaced.
+- The verdict is the first word under `## 4. Verdict`; anything but GO or NO_GO is
+  `MISSING=verdict`, and `plan.md` is left unchanged.
 - `relpath` must not contain `..` or start with `/` (exit 1).
 
 ## `keel-brief`

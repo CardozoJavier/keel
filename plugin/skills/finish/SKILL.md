@@ -51,8 +51,9 @@ otherwise run `keel-state next` and use its `FEATURE=` value. `<base>` is `BASE=
    - Fix it in `FIN-n` units (`intent=fix`, numbered like `REV-n` from subjects and ledger):
      `keel-ledger … started`, then `keel-brief … --from <the verify log>`, a fresh implementer
      following the `debug` skill (RED may be the already-failing test), `keel-evidence check`,
-     task-reviewer, `keel-verify`, the commit, and `ok`.
-   - A fix that touches production code gets one scoped `keel:code-reviewer` pass on
+     task-reviewer (`Store as: reviews/FIN-n-r<k>.md`), `keel-verify`, the commit, and `ok`.
+   - A fix that touches production code gets one scoped `keel:code-reviewer` pass
+     (`Store as: review/scoped-FIN-n.md`) on
      `keel-diff --unit FIN-n`. An in-design finding becomes another `FIN-n`; `changes-design`
      halts. Then go back to step 1 for the classes the fix touched.
    - **Caps**: at most 3 `FIN-n` units of each kind (gap, verify fix, scoped-review finding), at

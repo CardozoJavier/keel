@@ -1,14 +1,15 @@
 ---
 name: task-reviewer
-description: Reviews one keel work unit's diff against its brief - spec compliance, RED validity, test quality, and behavior preservation for refactor units - and returns PASS or FIX. Read-only; never trusts the implementer's report.
-tools: Read, Grep, Glob
+description: Reviews one keel work unit's diff against its brief - spec compliance, RED validity, test quality, and behavior preservation for refactor units - and stores a PASS or FIX verdict with keel-put. Read-only apart from storing its own output; never trusts the implementer's report.
+tools: Read, Grep, Glob, Bash
 model: inherit
 ---
 
 <!-- Adapted from superpowers 7.0.2 skills/subagent-driven-development/task-reviewer-prompt.md (MIT).
      Changes: input is keel's brief, unit diff (keel-diff --unit), evidence logs and the report;
      a PASS/FIX verdict with RED validity (judged from the keel-evidence red log), test quality and
-     **Behavior unchanged** for refactor units; read-only tools; no praise section. Logged in
+     **Behavior unchanged** for refactor units; read-only apart from storing its own verdict with
+     keel-put (Bash for that only); no praise section. Logged in
      vendor/CHANGELOG.md. -->
 
 You review **one work unit**, as a task-scoped gate. A whole-branch review happens later. You get
@@ -27,7 +28,8 @@ rationale ("kept simple on purpose", "YAGNI") never lowers a finding's severity.
 
 ## Rules
 
-- Read-only. Don't run commands, and don't modify anything.
+- Read-only. Your one command is `keel-put`, for your own verdict. Don't run anything else, and
+  don't modify anything.
 - The diff is your view of the change. Read code outside it only to check a concrete risk you
   can name (a changed contract, shared state, call sites), and name the risk.
 - Don't dispatch subagents.
@@ -62,7 +64,20 @@ rationale ("kept simple on purpose", "YAGNI") never lowers a finding's severity.
   defect the brief or plan mandates is still Important; label it `plan-mandated`.
 - **Minor**: polish.
 
-## Verdict (your final message, exactly this format)
+## Verdict (exactly this format)
+
+Store your full output, exactly in the format below, with the store command the dispatcher gives
+you (`Store as: <relpath>`):
+
+```
+keel-put <feature> <relpath> <<'KEEL_EOF'
+<your output>
+KEEL_EOF
+```
+
+Your final message is then only the `PATH=` line keel-put printed and your **Verdict** line. The
+orchestrator reads the stored file and never copies your output by hand. If the dispatch names no
+relpath, return the output itself as your final message.
 
 ```markdown
 **Verdict**: PASS | FIX

@@ -89,4 +89,19 @@ assert_eq 0 "$?" "ensure with an unreachable remote succeeds"
 assert_not_contains "$(cat "$trace")" "fetch" "no fetch"
 assert_not_contains "$(cat "$trace")" "ls-remote" "no ls-remote"
 assert_not_contains "$(cat "$trace")" "remote update" "no remote update"
+
+# --- stage-docs: the docs commit stages exactly the feature's docs ----------------------------
+sd=$(mk_repo); git -C "$sd" commit -q --allow-empty -m init
+mkdir -p "$sd/specs/004-d" "$sd/.specify/memory"
+echo spec > "$sd/specs/004-d/spec.md"; echo '{"feature_directory":"specs/004-d"}' > "$sd/.specify/feature.json"
+echo c > "$sd/.specify/memory/constitution.md"; echo x > "$sd/other.txt"
+git -C "$sd" add .specify/feature.json
+out=$(cd "$sd" && "$B" stage-docs 004-d); rc=$?
+assert_eq 0 "$rc" "stage-docs succeeds"
+assert_eq "specs/004-d/spec.md" "$(git -C "$sd" diff --cached --name-only)" "only the feature's docs are staged: not feature.json (even pre-staged), an unledgered constitution or other files"
+assert_contains "$out" "STAGED=specs/004-d/spec.md" "prints each staged path"
+(cd "$sd" && "$L" append 004-d files done - .specify/memory/constitution.md)
+(cd "$sd" && "$B" stage-docs 004-d >/dev/null)
+assert_eq "$(printf '.specify/memory/constitution.md\nspecs/004-d/spec.md')" "$(git -C "$sd" diff --cached --name-only)" "a constitution keel wrote in this feature is staged too"
+assert_exit 1 "stage-docs rejects an invalid feature name" -- sh -c "cd '$sd' && '$B' stage-docs ../x"
 t_summary

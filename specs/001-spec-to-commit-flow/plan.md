@@ -425,7 +425,8 @@ clean apart from the exemption list.
    ID and named paths.
 2. `keel-brief Tnnn` writes the brief.
 3. A fresh `implementer`, preloaded with `tdd` and `debug`, works through `keel-evidence run`.
-   It returns its report as text, which the orchestrator stores with `keel-put`.
+   It stores its own report with `keel-put` (the orchestrator never retypes it; amended
+   2026-11-26 after the full-path trial showed retyped reports shortened).
 4. For a behavior task (`keel-diff --kind`), `keel-evidence check` must pass. On failure the task
    gets one re-dispatch; a second failure halts.
 5. `keel-diff --unit Tnnn` writes the diff: BASE's tree against a temp-index tree of the working
@@ -472,8 +473,8 @@ history (`<base>..HEAD`).
 
 1. `keel-diff --base` writes the review diff (`<base>..HEAD`, committed).
 2. Three parallel `code-reviewer` agents run (simplicity/DRY, correctness, conventions). They report
-   findings with severity, confidence ≥ 80, scope and file:line. They return text, which the
-   orchestrator stores with `keel-put`.
+   findings with severity, confidence ≥ 80, scope and file:line, and each stores its own findings
+   with `keel-put`.
 3. The orchestrator verifies each finding with the `respond-review` rules.
 4. Findings are handled by severity:
    - **Critical or Important `in-design`**: fixed in a work unit `REV-n` by `implementer`, with

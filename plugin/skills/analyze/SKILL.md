@@ -2,7 +2,7 @@
 name: analyze
 description: Cross-artifact consistency check of a keel feature's spec, plan and tasks (Spec Kit's analysis plus keel's checks). A CRITICAL finding halts the run. When clean, it runs the baseline build and tests, records the baseline in tasks.md and makes the docs commit on the feature branch. Used by /keel:run, or on its own.
 argument-hint: "--feature NNN-name"
-allowed-tools: Read, Grep, Glob, Bash(keel-state:*), Write, Edit, Bash(keel-verify:*), Bash(keel-ledger:*), Bash(git status:*), Bash(git add:*), Bash(git commit:*), Bash(git log:*)
+allowed-tools: Read, Grep, Glob, Bash(keel-state:*), Write, Edit, Bash(keel-verify:*), Bash(keel-ledger:*), Bash(git status:*), Bash(keel-branch:*), Bash(git commit:*), Bash(git log:*)
 ---
 
 <!-- Adapted from speckit 0.8.4.dev0 commands/analyze.md (MIT): no extension hooks; not
@@ -97,8 +97,9 @@ recommendation.
    writes the `**Analyzed**` line and the `keel:baseline` comment into `tasks.md`. Never write or
    edit those lines by hand.
 4. **Docs commit**:
-   - Stage exactly `git add -- specs/<feature>`, plus `.specify/memory/constitution.md` if keel
-     wrote it in this feature (`keel-ledger rows <feature>` shows a `files done` row for it).
+   - Stage with `keel-branch stage-docs <feature>`, never with `git add`. It stages exactly
+     `specs/<feature>`, plus `.specify/memory/constitution.md` when keel wrote it in this feature,
+     and never `.specify/feature.json`. It prints a `STAGED=` line per path.
    - Commit in the **host's commit style**, for example `docs(<feature>): spec, plan and tasks`.
      Never add an AI co-author trailer where the host forbids one.
    - The baseline you just showed is this commit's evidence.

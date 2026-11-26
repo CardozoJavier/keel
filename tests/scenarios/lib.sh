@@ -269,3 +269,24 @@ for fn in sys.argv[2:]:
 print(last)
 ' "$@"
 }
+
+# scn_put_writers <session.jsonl...>: one line per keel-put call, in order: "main" (the session
+# itself) or "agent" (a subagent), a tab, and the relpath it stored.
+scn_put_writers() {
+  python3 -I -c '
+import json, re, sys
+put = re.compile(r"(?:^|[;&|(\s])keel-put\s+(?!--audit)(\S+)\s+([A-Za-z0-9._/-]+)")
+for fn in sys.argv[1:]:
+    for line in open(fn, errors="replace"):
+        try:
+            o = json.loads(line)
+        except ValueError:
+            continue
+        if o.get("type") != "assistant":
+            continue
+        for b in (o.get("message") or {}).get("content") or []:
+            if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") == "Bash":
+                for m in put.finditer(str((b.get("input") or {}).get("command", ""))):
+                    print("%s\t%s" % ("agent" if o.get("parent_tool_use_id") else "main", m.group(2)))
+' "$@"
+}

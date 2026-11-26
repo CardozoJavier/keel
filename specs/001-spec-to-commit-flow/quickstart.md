@@ -34,7 +34,7 @@ Put this in `<repo>/.claude/settings.local.json`:
     "allow": [
       "Bash(keel-state:*)", "Bash(keel-branch:*)", "Bash(keel-ledger:*)", "Bash(keel-put:*)",
       "Bash(keel-brief:*)", "Bash(keel-diff:*)", "Bash(keel-evidence:*)", "Bash(keel-verify:*)",
-      "Bash(keel-mutate:*)", "Bash(keel-classify:*)",
+      "Bash(keel-mutate:*)", "Bash(keel-classify:*)", "Bash(keel-plan-round:*)",
       "Bash(git add:*)", "Bash(git commit:*)", "Bash(git switch:*)", "Bash(git status:*)",
       "Bash(git diff:*)", "Bash(git log:*)", "Bash(git restore:*)", "Bash(git rev-parse:*)",
       "Bash(git ls-files:*)", "Bash(git symbolic-ref:*)", "Bash(git show:*)",

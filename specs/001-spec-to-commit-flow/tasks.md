@@ -581,6 +581,7 @@ errors (SC-008).
     - SC-001 to SC-008 and SC-010 to SC-014 are met; RESULTS.md has a table of the evidence for each. SC-005, SC-008, SC-010, SC-011 and SC-013 rely on their suites, scenarios and trials, not on this run.
     - SC-009 is pending the maintainer's judgment after three real features.
     - Interactive-only items stay open: user `!` commands and the session env, and the env after `/clear`, compaction and fork.
+    - 2026-11-26: both trial follow-ups are fixed and confirmed by a rerun. Reviewers and the implementer store their own output with `keel-put`, and `keel-plan-round` records plan-review rounds. The docs commit is staged by `keel-branch stage-docs`, so `.specify/feature.json` is never committed.
 - [X] T081 Write `specs/001-spec-to-commit-flow/test-quality.md` for keel itself (Principle V).
   - Include the mutation self-check results, with triaged survivors and their reasons.
   - State that PIT doesn't apply to bash, and that the sed mutants are its equivalent.

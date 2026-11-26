@@ -38,14 +38,11 @@ task `Tnnn`:
      are the task's production and test paths, comma-separated.
 2. **Brief**: run `keel-brief <feature> Tnnn`, which prints `BRIEF=`.
 3. **Implement**: dispatch a **fresh** `keel:implementer` agent with this prompt:
-   "Feature `<feature>`, unit `Tnnn`. Your brief: `<BRIEF path>`. Follow it and return your report
-   as your final message."
-4. **Store the report** verbatim:
-   ```
-   keel-put <feature> reports/Tnnn.md <<'KEEL_EOF'
-   <the agent's final message>
-   KEEL_EOF
-   ```
+   "Feature `<feature>`, unit `Tnnn`. Your brief: `<BRIEF path>`. Follow it, store your report
+   with the brief's keel-put command, and return the `PATH=` line and your status."
+4. **Read the report** at `<scratch>/reports/Tnnn.md`. The implementer stores it itself; never
+   write or rewrite it. If it's missing, dispatch a fresh implementer **once**; a second miss
+   halts.
 5. **Act on the status**:
    - `DONE`: continue.
    - `DONE_WITH_CONCERNS`: continue, and pass the concerns to the reviewer.
@@ -60,12 +57,14 @@ task `Tnnn`:
 7. **Task review**:
    - Run `keel-diff <feature> --unit Tnnn`, which prints `PATCH=`.
    - Dispatch a **fresh** `keel:task-reviewer` with the paths of the brief, the patch,
-     `<scratch>/evidence/Tnnn/` and `<scratch>/reports/Tnnn.md`.
-   - Store its verdict with `keel-put <feature> reviews/Tnnn-r<k>.md` (k = 1, 2, …).
+     `<scratch>/evidence/Tnnn/` and `<scratch>/reports/Tnnn.md`, the feature name, and
+     `Store as: reviews/Tnnn-r<k>.md` (k = 1, 2, …).
+   - Read its verdict from `<scratch>/reviews/Tnnn-r<k>.md`. The reviewer stores it itself; if it's
+     missing, dispatch a fresh reviewer **once**, and a second miss halts.
    - **FIX**:
      - Dispatch a fresh implementer with the brief plus "address every issue in
        `<scratch>/reviews/Tnnn-r<k>.md`; behavior changes test-first".
-     - Store the new report, then repeat steps 6 and 7.
+     - It stores a new report (replacing the old one); then repeat steps 6 and 7.
      - **At most 5 review rounds.** If the same issue survives 3 fix attempts, halt (FR-016; the
        `debug` stop).
 8. **Verify**:

@@ -1,13 +1,14 @@
 ---
 name: code-reviewer
-description: Reviews a keel feature's committed diff through one lens (simplicity, correctness or conventions) and returns only high-confidence findings (>= 80) with severity, scope (in-design or changes-design) and file:line. Read-only.
-tools: Read, Grep, Glob
+description: Reviews a keel feature's committed diff through one lens (simplicity, correctness or conventions) and returns only high-confidence findings (>= 80) with severity, scope (in-design or changes-design) and file:line, stored with keel-put. Read-only apart from storing its own output.
+tools: Read, Grep, Glob, Bash
 model: inherit
 ---
 
 <!-- Adapted from feature-dev 1.0.1 agents/code-reviewer.md (Apache-2.0)
      Modified by keel (2026-11-25), Apache License 2.0 §4(b) change notice:
-     renamed; tools restricted to read-only Read/Grep/Glob; one lens per dispatch (simplicity,
+     renamed; tools restricted to read-only Read/Grep/Glob, plus Bash used only to store its own
+     findings with keel-put; one lens per dispatch (simplicity,
      correctness, conventions) instead of all concerns at once; input is keel's review diff and
      the feature's spec, plan and test-quality report rather than `git diff`; findings carry a
      scope tag (in-design | changes-design) and use templates/finding.md; severity calibration
@@ -59,13 +60,26 @@ touch.
 
 ## Rules
 
-- Read-only. Don't run commands.
+- Read-only. Your one command is `keel-put`, for your own findings. Don't run anything else.
 - Cite `file:line` for every finding.
 - Write no preamble and no strengths section. Don't dispatch subagents.
 
-## Output (your final message)
+## Output
 
 Use exactly the format in `templates/finding.md`: one entry per finding, most severe first.
+
+Store your full output, exactly in the format below, with the store command the dispatcher gives
+you (`Store as: <relpath>`):
+
+```
+keel-put <feature> <relpath> <<'KEEL_EOF'
+<your output>
+KEEL_EOF
+```
+
+Your final message is then only the `PATH=` line keel-put printed and a `FINDINGS=<n>` line. The
+orchestrator reads the stored file and never copies your output by hand. If the dispatch names no
+relpath, return the output itself as your final message.
 
 ```markdown
 - **[Critical|Important|Minor]** (confidence <80–100>, scope <in-design|changes-design>) `<file:line>`

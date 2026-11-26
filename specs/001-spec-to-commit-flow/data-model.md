@@ -198,8 +198,8 @@ Commits follow the host's style, and each carries the keel ID so that state is d
 ```text
 ledger.tsv              # ts<TAB>step<TAB>status<TAB>ref<TAB>detail (append-only)
 briefs/<unit>.md        # keel-brief (unit = T###, MUT-n, REV-n, FIN-n, FINISH)
-reports/<unit>.md       # implementer report (stored by the orchestrator via keel-put)
-reviews/<unit>-r<n>.md  # task-reviewer output per round (keel-put)
+reports/<unit>.md       # implementer report (stored by the implementer via keel-put)
+reviews/<unit>-r<n>.md  # task-reviewer output per round (stored by the reviewer via keel-put)
 evidence/<unit>/NN-<phase>.log, evidence/<unit>/index.tsv   # keel-evidence
 verify/<label>.log, verify/<label>.failing              # keel-verify (baseline, units, test-quality, finish)
 diffs/<unit>.patch      # keel-diff --unit (T###, MUT-n, REV-n, FIN-n)

@@ -4,6 +4,9 @@
 #   keel-branch next-number          → NNN=<1 + max(specs/NNN-* dirs, local NNN-* branches)>
 #   keel-branch ensure <NNN-name>    → BRANCH= BASE= CREATED=yes|no STACKED=<branch>|no
 #   keel-branch default              → DEFAULT=<default branch>
+#   keel-branch stage-docs <feature> → STAGED=<path> per staged path: stages exactly specs/<feature>,
+#       plus .specify/memory/constitution.md when keel wrote it in this feature (ledger "files done"
+#       row), for the docs commit. .specify/feature.json is never staged (unstaged if it was).
 # ensure halts (exit 3, MISSING=clean-tree) on any change outside the ensure-scope exemptions:
 #   .specify/feature.json always; specs/<feature>/** and .specify/memory/constitution.md when keel
 #   wrote them (ledger "files done" rows) or when HEAD is already the branch named <feature>.
@@ -45,8 +48,20 @@ case "${1:-}" in
   default)
     keel_emit DEFAULT "$(default_branch)"
     exit 0 ;;
+  stage-docs)
+    feature=${2:-}
+    keel_feature_ok "$feature" || keel_die 1 "invalid feature name: $feature"
+    [ -d "specs/$feature" ] || { echo "MISSING=specs"; keel_die 3 "no specs/$feature to stage"; }
+    if git rev-parse -q --verify HEAD >/dev/null 2>&1; then git reset -q -- .specify/feature.json >/dev/null 2>&1
+    else git rm -q --cached --ignore-unmatch -- .specify/feature.json >/dev/null 2>&1; fi
+    git add -- "specs/$feature" || keel_die 5 "cannot stage specs/$feature"
+    if "$LEDGER" rows "$feature" 2>/dev/null | awk -F'\t' '$2 == "files" && $3 == "done" && $5 == ".specify/memory/constitution.md" { f = 1 } END { exit !f }'; then
+      git add -- .specify/memory/constitution.md || keel_die 5 "cannot stage the constitution"
+    fi
+    git diff --cached --name-only | while IFS= read -r p; do keel_emit STAGED "$p"; done
+    exit 0 ;;
   ensure) ;;
-  *) keel_die 1 "usage: keel-branch next-number | ensure <NNN-name> | default" ;;
+  *) keel_die 1 "usage: keel-branch next-number | ensure <NNN-name> | default | stage-docs <feature>" ;;
 esac
 
 feature=${2:-}

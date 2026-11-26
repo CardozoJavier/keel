@@ -46,4 +46,13 @@ out=$(scn_bash_output 'keel-verify run .*--label finish' "$d/s1.jsonl" "$d/s2.js
 assert_contains "$out" "RESULT=pass" "the last matching call's output, across sessions in order"
 assert_not_contains "$out" "RESULT=fail" "earlier and non-matching calls are not included"
 assert_eq "" "$(scn_bash_output 'no such command' "$d/s1.jsonl" "$d/s2.jsonl")" "no matching call: empty"
+
+# --- scn_put_writers: who ran each keel-put (the session itself, or an agent) ----------------
+cat > "$d/put.jsonl" <<'JSON'
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"p1","name":"Bash","input":{"command":"keel-put 001-x reports/T001.md <<'KEEL_EOF'\n# Report: T001\nKEEL_EOF"}}]}}
+{"type":"assistant","parent_tool_use_id":"a1","message":{"content":[{"type":"tool_use","id":"p2","name":"Bash","input":{"command":"keel-put 001-x reviews/T001-r1.md <<'KEEL_EOF'\n**Verdict**: PASS\nKEEL_EOF"}}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"p3","name":"Bash","input":{"command":"keel-verify run 001-x --label T001 -- mvn verify"}}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"p4","name":"Bash","input":{"command":"cd repo && keel-put 001-x plan-review/round-1.md <<'EOF'\nx\nEOF"}}]}}
+JSON
+assert_eq "$(printf 'main\treports/T001.md\nagent\treviews/T001-r1.md\nmain\tplan-review/round-1.md')" "$(scn_put_writers "$d/put.jsonl")" "each keel-put with its writer and relpath, in order"
 t_summary

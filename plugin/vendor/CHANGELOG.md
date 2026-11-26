@@ -24,3 +24,4 @@ source; feature-dev derivatives also carry an Apache-2.0 §4(b) change notice.
 | 2026-11-25 | skills/verify | superpowers verification-before-completion | keel-verify detect/run; no PR or push wording |
 | 2026-11-25 | skills/respond-review | superpowers receiving-code-review | GitHub reply section removed; every comment ends applied, declined or needs-input |
 | 2026-11-25 | agents/implementer.md, agents/task-reviewer.md | superpowers subagent-driven-development implementer-prompt.md, task-reviewer-prompt.md | keel briefs and evidence; no commits; PASS/FIX verdict with RED validity and behavior-unchanged |
+| 2026-11-26 | agents/implementer.md, agents/task-reviewer.md, agents/code-reviewer.md | (same sources as above) | each stores its own report, verdict or findings with keel-put and returns only the PATH= and verdict/status lines; the reviewers get Bash for keel-put only |

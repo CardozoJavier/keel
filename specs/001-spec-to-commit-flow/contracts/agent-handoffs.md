@@ -3,9 +3,15 @@
 How handoffs move between the orchestrating session and agents:
 - **Inputs reach agents as file paths**: briefs and diffs, written by keel's scripts. Content isn't
   pasted.
-- **Agents never write under `.git`**, which is a protected path and always prompts. Each agent
-  returns its report as its **final message**, in the format below.
-- **The orchestrator stores it** with `keel-put <feature> <relpath> <<'EOF' … EOF`.
+- **Reviewers and the implementer store their own output** in the format below, with
+  `keel-put <feature> <relpath> <<'KEEL_EOF' … KEEL_EOF`. The dispatch names the relpath
+  (`Store as: <relpath>`); the implementer's comes from its brief. keel-put writes under
+  `.git/keel/` for them, so no agent writes under `.git` itself (a protected path that always
+  prompts). Their final message is only the `PATH=` line and the verdict or status line.
+- **The orchestrator reads the stored file** and never copies agent output by hand. Retyped output
+  got shortened: in the 2026-11-25 full-path trial a 2.7k-character task review was stored as
+  one line. Plan-review rounds reach `plan.md` through `keel-plan-round`. Explorers and
+  architects still return their output as their final message; it isn't stored.
 - **Only the implementer edits files**, and only project files.
 
 This scheme is adapted from superpowers' SDD.
@@ -16,13 +22,15 @@ This scheme is adapted from superpowers' SDD.
 |---|---|---|---|---|
 | explorer | Read, Grep, Glob | none | sonnet | feature-dev code-explorer (Apache-2.0, modified) |
 | architect | Read, Grep, Glob | none | inherit | feature-dev code-architect (Apache-2.0, modified: one lens per call, no single commitment) |
-| plan-reviewer | Read, Grep, Glob | none | inherit | keel (the maintainer's Plan Review Protocol) |
+| plan-reviewer | Read, Grep, Glob, Bash (keel-put only) | none | inherit | keel (the maintainer's Plan Review Protocol) |
 | implementer | Read, Edit, Write, Bash, Grep, Glob | tdd, debug | inherit | superpowers SDD implementer prompt (MIT, adapted) |
-| task-reviewer | Read, Grep, Glob | none | inherit | superpowers SDD task reviewer (MIT, adapted) |
-| code-reviewer | Read, Grep, Glob | none | inherit | feature-dev code-reviewer (Apache-2.0, modified) + superpowers severity calibration (MIT) |
+| task-reviewer | Read, Grep, Glob, Bash (keel-put only) | none | inherit | superpowers SDD task reviewer (MIT, adapted) |
+| code-reviewer | Read, Grep, Glob, Bash (keel-put only) | none | inherit | feature-dev code-reviewer (Apache-2.0, modified) + superpowers severity calibration (MIT) |
 
-- **Reading scratch**: reviewers and explorers read files under `.git/keel/` (reads don't prompt)
-  but don't run Bash.
+- **Reading scratch**: reviewers and explorers read files under `.git/keel/` (reads don't prompt).
+  Explorers and architects don't run Bash. Reviewers run it only for `keel-put`; an agent's
+  `tools` can't restrict Bash to one command (R7.4), so that limit is a rule in each agent, not
+  enforced. Their keel-put calls are covered by the quickstart's `Bash(keel-put:*)` allow rule.
 - **Implementer Bash**: covered by both push-guard layers. Layer A covers it if the session env
   applies to subagents (verification item 5).
 - **Permissions**: the implementer's Bash allow rules come from the quickstart's permission block
@@ -52,10 +60,10 @@ This scheme is adapted from superpowers' SDD.
 - Run every test and build through `keel-evidence run` or `keel-verify`, never directly.
 - Host conventions: <paths to host CLAUDE.md files>
 ## Report
-Return your report as your final message, in the format of templates/report.md.
+Store your report with `keel-put <feature> reports/<unit>.md <<'KEEL_EOF' … KEEL_EOF`, in the format of templates/report.md, and return only the `PATH=` and `**Status**` lines.
 ```
 
-## Implementer report (the agent's final message, stored as `reports/<unit>.md`)
+## Implementer report (stored by the implementer as `reports/<unit>.md`)
 
 ```markdown
 # Report: <unit>
@@ -67,7 +75,7 @@ Return your report as your final message, in the format of templates/report.md.
 **Concerns / blockers / questions**: <only if status ≠ DONE>
 ```
 
-## Task review (final message, stored as `reviews/<unit>-r<round>.md`)
+## Task review (stored by the reviewer as `reviews/<unit>-r<round>.md`)
 
 **Input**: the paths of the brief, `diffs/<unit>.patch`, `evidence/<unit>/` and the report.
 
@@ -83,7 +91,7 @@ Return your report as your final message, in the format of templates/report.md.
 - **FIX**: triggered by any Critical or Important issue, by `RED validity: no`, or by
   `Test quality: no`.
 
-## Code review finding (final message, stored as `review/findings-<lens>.md`)
+## Code review finding (stored by the reviewer as `review/findings-<lens>.md`)
 
 **Input**: the paths of `review/diff.patch`, `review/files.txt`, the spec, the plan, the host
 CLAUDE.md files and `test-quality.md`.
@@ -104,10 +112,10 @@ CLAUDE.md files and `test-quality.md`.
     `test-quality.md`.
   - `conventions`: host CLAUDE.md rules and existing patterns.
 
-## Plan review (final message, stored as `plan-review/round-<n>.md` and appended to `plan.md`)
+## Plan review (stored by the reviewer as `plan-review/round-<n>.md`; `keel-plan-round` appends it to `plan.md`)
 
 - **Input**: the paths of the spec, the plan, Phase 1 artifacts and the constitution. Rounds after
-  the first also get the prior rounds' verbatim output plus a disposition log.
+  the first also get the paths of the prior rounds' stored output plus a disposition log.
 - **Output**: four sections:
   1. Critical flaws.
   2. Missing assumptions.

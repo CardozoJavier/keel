@@ -32,9 +32,11 @@ otherwise run `keel-state next` and use its `FEATURE=` value. `<scratch>` means
    - `specs/<feature>/spec.md` and `plan.md`;
    - the host's CLAUDE.md files;
    - `specs/<feature>/test-quality.md`;
-   - its lens.
-3. **Store each output verbatim** with `keel-put <feature> review/findings-<lens>.md
-   <<'KEEL_EOF' … KEEL_EOF`, even when it says "No findings".
+   - its lens;
+   - the feature name and `Store as: review/findings-<lens>.md`.
+3. **Read each stored output** at `<scratch>/review/findings-<lens>.md`. The reviewers store them
+   verbatim themselves, even "No findings"; never write or rewrite them. If one is missing,
+   dispatch that lens again **once**; a second miss halts.
 
 ## 2. Verify every finding (respond-review rules)
 
@@ -72,11 +74,12 @@ with `keel-put <feature> review/verified-r<k>.md`.
    - **Start the unit**: `keel-ledger append <feature> review started <HEAD> REV-n <intent>
      <finding paths and their tests, comma-separated>`.
    - **Brief**: `keel-brief <feature> REV-n --from <scratch>/review/verified-r<k>.md`.
-   - **Implement**: dispatch a fresh `keel:implementer` with the brief, and store its report
-     (`reports/REV-n.md`).
+   - **Implement**: dispatch a fresh `keel:implementer` with the brief. It stores its report at
+     `reports/REV-n.md`.
    - **Evidence**: for `intent=fix` with `keel-diff --kind REV-n` = behavior, `keel-evidence check
      <feature> REV-n` must pass.
-   - **Task review**: `keel-diff <feature> --unit REV-n`, then a fresh `keel:task-reviewer`.
+   - **Task review**: `keel-diff <feature> --unit REV-n`, then a fresh `keel:task-reviewer` with
+     `Store as: reviews/REV-n-r<k>.md`.
      - For `refactor` units, `**Behavior unchanged**: no` re-opens the unit as `intent=fix`.
      - On FIX, re-dispatch. At most 5 rounds.
    - **Verify**: `keel-verify run <feature> --label REV-n --kind <KIND> -- <command>`. Show the
@@ -84,7 +87,8 @@ with `keel-put <feature> review/verified-r<k>.md`.
    - **Commit** in the host's style with `REV-n` in the subject: stage the fresh `keel-diff --unit
      REV-n` files. Never add an AI co-author trailer where the host forbids one. Then
      `keel-ledger append <feature> review ok <sha> REV-n`.
-   - **Scoped re-review**: dispatch one `keel:code-reviewer` (correctness lens) on
+   - **Scoped re-review**: dispatch one `keel:code-reviewer` (correctness lens,
+     `Store as: review/scoped-REV-n.md`) on
      `keel-diff <feature> --unit REV-n`. A new verified in-design finding is another round, and a
      `changes-design` one halts.
    - **At most 3 REV rounds.** Findings still open after that are halted and reported.

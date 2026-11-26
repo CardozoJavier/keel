@@ -21,14 +21,24 @@
 - Mutation-gap unit (Intent: gap): tests only, never production code. Add or strengthen tests that check behavior traceable to the requirements above, and run them with `… green -- <test command>`. For a gap no test can observe, propose a triage row (`<key> equivalent: <why>` or `<key> not worth a test: <why>`) instead of writing a contrived test.
 - Refactor unit (Intent: refactor): don't change behavior and don't write a RED test. Run the tests with `… refactor -- <test command>`.
 - Allowed paths: {{PATHS}}. For tasks this list is advisory: ripple edits are fine, and you report them. Build files are the exception; never edit them unless the task names them. Gap units are limited to test paths and the triage file.
-- Do not commit. Do not write under `.git`. Never push or open pull requests.
+- Do not commit. Do not write under `.git`, except your report through `keel-put` (below). Never push or open pull requests.
 - Do not run git commands that change the tree, index or refs: stash, reset, checkout, switch, restore, clean, rebase. Read-only git (status, diff, log, show) is fine.
 - Run every test and build through `keel-evidence run` or `keel-verify`, never directly.
 - Host conventions win over these defaults (code style, test naming, commit rules): {{HOST}}
 
 ## Report
 
-Return your report as your final message, using this format (templates/report.md):
+Store your report with exactly this command, using the format below (templates/report.md). It
+replaces any earlier report for this unit:
+
+```
+keel-put {{FEATURE}} reports/{{UNIT}}.md <<'KEEL_EOF'
+<your report>
+KEEL_EOF
+```
+
+Your final message is then only the `PATH=` line keel-put printed and your `**Status**` line.
+
 
 ```markdown
 # Report: {{UNIT}}

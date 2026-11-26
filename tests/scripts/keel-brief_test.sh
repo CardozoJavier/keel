@@ -58,7 +58,8 @@ assert_contains "$b" "returns Decision" "contracts excerpt mentioning the task's
 assert_not_contains "$b" "Unrelated line" "unrelated plan lines are left out"
 assert_contains "$b" "$(cd "$r" && pwd -P)/CLAUDE.md" "host CLAUDE.md path listed"
 assert_contains "$b" "keel-evidence run $f T001 red --" "rules name the evidence command"
-assert_contains "$b" "Return your report as your final message" "report instruction"
+assert_contains "$b" "keel-put $f reports/T001.md <<'KEEL_EOF'" "the implementer stores its own report"
+assert_not_contains "$b" "Return your report as your final message" "the report is not retyped by the orchestrator"
 
 # non-task units take their content from --from
 mkdir -p "$r/.git/keel/$f/mut"

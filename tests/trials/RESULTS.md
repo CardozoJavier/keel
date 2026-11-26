@@ -205,3 +205,88 @@ Follow-ups from this run's final message:
 
 Still open, interactive only: whether user `!` commands get the session env, and the env after
 `/clear`, compaction and fork (quickstart verified-facts table).
+
+## Full-path trial after the verbatim and docs-staging fixes, 2026-11-26
+
+- **Repo**: sample-maven; feature `001-price-discount`; model `sonnet`; wall time 6 min; resumes needed: 0.
+- **keel-state next**: `STEP=done`.
+- **Gates**: session 1 ended with: …o reverse? | yes | The change is additive |  **Qualifies as small:** yes  Reply **approve**, **approve with the light path** (one gate, no competing designs or plan review), or tell me what to change.
+  session 2 ended with: … mirrors the rounding requirement, so exactness and no overflow are easy to check. - Nothing in the spec calls for A's speed or B's extra type.  Reply **A**, **B**, **C**, or describe your own design.
+- **Agents**: explorers 3, architects 3, plan reviewers 1, implementers 2, task reviewers 2, code reviewers 3.
+  (distinct top-level Agent dispatches across all sessions)
+- **Commits** (`a439579..HEAD`):
+
+```text
+c0a4e21 feat(001-price-discount): implement percentage price discount
+106e32c test(001-price-discount): test-quality report
+9d1d160 feat(price): T002 reject discount percentages outside 0..100
+938d430 feat(price): T001 add rounded percentage discount to Price
+d8545f5 docs(001-price-discount): spec, plan and tasks
+```
+
+- **Evidence per behavior task**:
+  - `T001` (behavior): evidence check pass; verify log present
+  - `T002` (behavior): evidence check pass; verify log present
+- **Test quality**: **Result**: resolved; **Summary**: 9 mutants (6 in scope); killed 6; coverage gaps 0; assertion gaps 0; triaged 0; excluded 0
+- **Spec status**: **Status**: Implemented (2026-11-26)
+- **Finish verify** (keel-verify stdout): RESULT=pass FAILING=0 NEW=0 TESTS=present (log present)
+- **Agent outputs stored by the session itself** (must be 0): 0; **by the agents**: 8 (background agents' calls are not in the stream).
+- **Commits touching `.specify/feature.json`**: none (the script printed an empty value here; fixed since. `git log a439579..HEAD -- .specify/feature.json` is empty)
+- **Build files unchanged**: yes
+- **Co-author trailers**: none; **tree**: clean; **remote refs**: none (no remote configured; the guard blocks pushes regardless).
+- **Permission denials in the sessions (SC-001)**: 0; **Spec Kit CLI or speckit-* skill used (SC-007)**: 0; **speckit skills or commands reachable**: 0.
+- **SC-006, Spec Kit reads the artifacts**: check-prerequisites: `{"FEATURE_DIR":"/var/folders/v3/z6rlh_z57yj7sbfj6trt8lh80000gn/T/keeltest.TB371C/speckit-copy/specs/001-price-discount","AVAILABLE_DOCS":["research.md","data-model.md","quickstart.md","tasks.md"]}`
+  `/speckit-analyze`: - Total requirements: 9 (5 FR, 4 SC);- Critical issues: 0;
+- **Final message**:
+
+```text
+**`001-price-discount` is done: `Price.discounted(int percent)` is implemented and committed locally. Not pushed.**
+
+**Your actions**
+- Run `git push` yourself when you're ready; no host instruction asked for publishing.
+- `.specify/feature.json` is still untracked; keel leaves it out of its commits.
+
+**Behavior**
+- Returns the price reduced by 0 to 100 percent, rounded half up to the cent, including for the largest possible price.
+- Any other percentage throws `IllegalArgumentException("percent must be between 0 and 100")`.
+
+**Commits** (`a439579..HEAD`)
+- `d8545f5` docs(001-price-discount): spec, plan and tasks
+- `938d430` feat(price): T001 add rounded percentage discount to Price
+- `9d1d160` feat(price): T002 reject discount percentages outside 0..100
+- `106e32c` test(001-price-discount): test-quality report
+- `c0a4e21` feat(001-price-discount): implement percentage price discount
+
+**Gates (full path)**
+- Gate 1: you approved the spec.
+- Gate 2: you picked the pragmatic balance design (`BigDecimal`, `int` parameter).
+- Plan review: GO in round 1. Its wording correction is fixed, and its task-coverage points went into `tasks.md`.
+
+**Quality**
+- **Tests first:** both tasks have recorded failing-then-passing runs and passed task review.
+- **Mutation testing:** resolved; 9 mutants (6 in scope), all 6 killed, no gaps.
+- **Redundant tests:** 7 tests in `PriceTest` are flagged as overlapping with the others. This doesn't block, and I kept them all.
+- **Code review:** no findings from the simplicity, correctness or conventions reviewers, so no fix commits.
+- **Re-mutation:** skipped, because no production code changed after the test-quality commit.
+
+**Final verify**
+- `mvn -q verify` passed with 0 failures; the surefire report shows 34 tests in `shop.PriceTest`.
+- Log: `.git/keel/001-price-discount/verify/finish.log`
+
+**Process note**
+- T001 asked for a stub before the first failing test, which conflicts with keel's test-first check. The implementer recorded a failing run both before and after the stub, and the check passed.
+
+No patches were recovered, the branch isn't stacked, and no tasks were committed by hand.
+```
+
+The rerun checks the two follow-ups from the 2026-11-25 run:
+- **Verbatim outputs.** The session stored 0 agent outputs itself; the agents stored 8 with
+  `keel-put`. Stored sizes are now 2,120 chars for plan-review round 1 (638 before), 746 and 828
+  for the task reviews (5 to 38 before), and 1,414 and 684 for the reports (237 to 386 before).
+  `keel-plan-round` put round 1 into `plan.md` byte for byte, and the session filled in its
+  dispositions.
+- **Docs staging.** `keel-branch stage-docs` staged the docs commit, and no commit touches
+  `.specify/feature.json`.
+
+The `us2_implement_red_green` scenario confirms the verbatim fix. Against the previous plugin it
+failed (`main reports/T001.md; main reviews/T001-r1.md`); with the fix it passes 13/13.

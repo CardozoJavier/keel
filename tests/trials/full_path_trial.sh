@@ -38,6 +38,9 @@ last=$(printf '%s\n' "$all" | tail -1)
 denied=$(cat $all | grep -c 'Permission to use' || true)
 speckit=$(scn_speckit_used $all); reachable=$(scn_speckit_reachable $all)
 dispatches() { local n=0 s; for s in $all; do n=$((n + $(scn_dispatches "$s" "$1"))); done; echo "$n"; }
+writers=$(scn_put_writers $all | awk -F'\t' '$2 ~ /^(reports|reviews|plan-review|review\/(findings|scoped))/')
+by_session=$(printf '%s\n' "$writers" | grep -c '^main' || true); by_agents=$(printf '%s\n' "$writers" | grep -c '^agent' || true)
+fjc=$(git -C "$r" log --format=%h "$base..HEAD" -- .specify/feature.json | tr '\n' ' '); fjc=${fjc% }
 finish=$(scn_bash_output 'keel-verify run .*--label finish' $all | grep -E '^(RESULT|FAILING|NEW|TESTS|MISSING)=' | tr '\n' ' ')
 q1=$(scn_result "$s1" | tail -c 400); q2=$(scn_result "$s2" | tail -c 400)
 cp -R "$r" "$out/repo"   # keep the result for inspection
@@ -70,6 +73,8 @@ printf '%s\n' "$an" > "$out/speckit-analyze.txt"
   printf -- '- **Test quality**: %s; %s\n' "$(grep -m1 '^\*\*Result\*\*' "$r/specs/$f/test-quality.md" 2>/dev/null)" "$(grep -m1 '^\*\*Summary\*\*' "$r/specs/$f/test-quality.md" 2>/dev/null)"
   printf -- '- **Spec status**: %s\n' "$(grep -m1 '^\*\*Status\*\*' "$r/specs/$f/spec.md")"
   printf -- '- **Finish verify** (keel-verify stdout): %s(log %s)\n' "${finish:-no finish run found }" "$([ -f "$g/keel/$f/verify/finish.log" ] && echo present || echo missing)"
+  printf -- '- **Agent outputs stored by the session itself** (must be 0): %s; **by the agents**: %s (background agents'\'' calls are not in the stream).\n' "$by_session" "$by_agents"
+  printf -- '- **Commits touching `.specify/feature.json`**: %s\n' "${fjc:-none}"
   printf -- '- **Build files unchanged**: %s\n' "$([ -z "$(git -C "$r" diff --name-only "$base" HEAD -- pom.xml mvnw .mvn)" ] && echo yes || echo NO)"
   printf -- '- **Co-author trailers**: %s; **tree**: %s; **remote refs**: none (no remote configured; the guard blocks pushes regardless).\n' \
     "$(git -C "$r" log --format=%B "$base..HEAD" | grep -ci 'co-authored-by' | sed 's/^0$/none/')" \
